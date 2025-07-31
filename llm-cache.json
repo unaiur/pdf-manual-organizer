@@ -1,0 +1,16 @@
+{
+  "siemens/EQ700-coffee-maker.pdf": {
+    "hash": "sha256:72fa0adcde6116c98c94033c06bbbc0c5a3680c6745c1d0eae41ee6774481b9d",
+    "brand": "Siemens",
+    "model": "EQ700",
+    "device": "fully automatic espresso machine",
+    "manualType": "user manual"
+  },
+  "lg/fridge.pdf": {
+    "hash": "sha256:8b2e99614c6110086833a865d23c64e88a6ad7374d9a01a2f4b8ba4c4ea9c338",
+    "brand": "LG",
+    "model": "",
+    "device": "fridge and freezer",
+    "manualType": "owner's manual"
+  }
+}

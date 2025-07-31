@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2025-07-29T12:32:22.153Z",
+  "pdfs": [
+    {
+      "path": "siemens/EQ700-coffee-maker.pdf",
+      "filename": "EQ700-coffee-maker.pdf",
+      "hash": "sha256:72fa0adcde6116c98c94033c06bbbc0c5a3680c6745c1d0eae41ee6774481b9d",
+      "title": "Gebrauchsanleitung EQ.700 integral TQ7..... | Siemens, User manual EQ.700 integral TQ7..... | Siemens, Manuel d'utilisation EQ.700 integral TQ7..... | Siemens, Manuale utente EQ.700 integral TQ7..... | Siemens",
+      "brand": "Siemens",
+      "model": "EQ700",
+      "device": "fully automatic espresso machine",
+      "manualType": "user manual",
+      "tags": [
+        "brand=Siemens",
+        "model=EQ700",
+        "device=fully automatic espresso machine",
+        "manualType=user manual"
+      ],
+      "extraTags": [],
+      "pages": 128,
+      "lastModified": "2025-07-29T11:33:23.282Z"
+    }
+  ]
+}

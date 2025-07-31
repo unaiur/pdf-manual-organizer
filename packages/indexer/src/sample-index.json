@@ -1,0 +1,19 @@
+{
+  "generatedAt": "2025-07-29T12:00:00Z",
+  "pdfs": [
+    {
+      "path": "pdf/coffee/siemens-espresso-3000.pdf",
+      "filename": "siemens-espresso-3000.pdf",
+      "hash": "sha256:abc123...",
+      "title": "Siemens Espresso 3000 User Guide",
+      "brand": "Siemens",
+      "model": "Espresso 3000",
+      "device": "coffee maker",
+      "manualType": "user guide",
+      "tags": ["brand=Siemens", "device=coffee maker", "manualType=user guide"],
+      "extraTags": ["location=kitchen"],
+      "pages": 48,
+      "lastModified": "2025-07-28T18:00:00Z"
+    }
+  ]
+}
