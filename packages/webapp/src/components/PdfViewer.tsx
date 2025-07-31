@@ -36,13 +36,14 @@ function PageItem({ index, style, data }: PageItemProps) {
   const pageNumber = visiblePages[index];
 
   return (
-    <div style={style}>
+    <div style={{...style, overflow: 'visible'}}>
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center',
         p: isMobile ? 0.25 : 0.5,
-        height: '100%'
+        height: '100%',
+        minWidth: 'max-content'
       }}>
         <Box sx={{ boxShadow: 0, bgcolor: 'white' }}>
           <Page
@@ -98,6 +99,7 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
   // Get actual PDF dimensions from first page
   useEffect(() => {
     if (!numPages || pdfViewport) return;
+    console.log('📄 Getting PDF dimensions for:', pdf.filename);
 
     const getPdfDimensions = async () => {
       try {
@@ -105,6 +107,7 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
         const page = await pdfDoc.getPage(1);
         const viewport = page.getViewport({ scale: 1 });
         
+        console.log('📏 PDF dimensions:', { width: viewport.width, height: viewport.height });
         setPdfViewport({
           width: viewport.width,
           height: viewport.height
@@ -115,7 +118,7 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
     };
 
     getPdfDimensions();
-  }, [numPages, pdf.path, pdfViewport]);
+  }, [numPages, pdf.path, pdfViewport, pdf.filename]);
 
   // Calculate scale factors when container or PDF dimensions change
   useEffect(() => {
@@ -146,20 +149,22 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
   }
 
   // Calculate current scale and item height
-  const { pageScale, itemHeight } = useMemo(() => {
+  const { pageScale, itemHeight, pageWidth } = useMemo(() => {
     if (!pdfViewport) {
-      return { pageScale: 1, itemHeight: 800 };
+      return { pageScale: 1, itemHeight: 800, pageWidth: 600 };
     }
 
     const padding = isMobile ? 8 : 16;
     const currentScale = scale;
 
-    // Calculate exact item height based on actual PDF viewport height and current scale
+    // Calculate exact item height and width based on actual PDF viewport dimensions and current scale
     const calculatedItemHeight = (pdfViewport.height * currentScale) + padding;
+    const calculatedPageWidth = (pdfViewport.width * currentScale) + padding;
 
     return {
       pageScale: currentScale,
-      itemHeight: calculatedItemHeight
+      itemHeight: calculatedItemHeight,
+      pageWidth: calculatedPageWidth
     };
   }, [pdfViewport, scale, isMobile]);
 
@@ -169,40 +174,47 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
       return;
     }
 
-    const updateContainerDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const availableHeight = window.innerHeight - rect.top - 16;
-        const availableWidth = rect.width;
-        
-        const minHeight = 400;
-        const finalHeight = Math.max(availableHeight, minHeight);
-        
+    const updateContainerDimensions = (reason: string) => {
+      if (!containerRef.current) {
+        return;
+      }
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const availableHeight = window.innerHeight - rect.top - 16;
+      const availableWidth = rect.width;
+      
+      const minHeight = 400;
+      const finalHeight = Math.max(availableHeight, minHeight);
+      
+      // Only update if dimensions actually changed
+      if (availableWidth !== containerWidth || finalHeight !== containerHeight) {
+        console.log('📐 Container dimensions changing:', { 
+          reason,
+          from: { width: containerWidth, height: containerHeight },
+          to: { width: availableWidth, height: finalHeight }
+        });
         setContainerHeight(finalHeight);
         setContainerWidth(availableWidth);
       }
     };
 
-    const resizeObserver = new ResizeObserver(updateContainerDimensions);
-    let observerSetup = false;
+    const resizeObserver = new ResizeObserver(() => {
+      updateContainerDimensions('ResizeObserver');
+    });
 
-    const timeoutId = setTimeout(() => {
-      updateContainerDimensions();
-      if (containerRef.current && !observerSetup) {
-        resizeObserver.observe(containerRef.current);
-        observerSetup = true;
-      }
-    }, 100);
+    // Set up ResizeObserver only, no timeout needed since ref callback handles initial measurement
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
     
-    const handleResize = updateContainerDimensions;
+    const handleResize = () => updateContainerDimensions('window-resize');
     window.addEventListener('resize', handleResize);
     
     return () => {
-      clearTimeout(timeoutId);
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
     };
-  }, [visiblePages.length, loading]);
+  }, [visiblePages.length, loading]); // Removed containerWidth, containerHeight from dependencies
 
   // Handle initial page scrolling
   useEffect(() => {
@@ -246,13 +258,33 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
       >
         {visiblePages.length > 0 && !loading && pdfViewport && (
           <Box 
-            ref={containerRef}
+            ref={(el: HTMLDivElement | null) => {
+              containerRef.current = el;
+              if (el) {
+                // Measure dimensions immediately when ref is set, but only if they're different
+                const rect = el.getBoundingClientRect();
+                const availableHeight = window.innerHeight - rect.top - 16;
+                const availableWidth = rect.width;
+                const minHeight = 400;
+                const finalHeight = Math.max(availableHeight, minHeight);
+                
+                // Only update if dimensions actually changed
+                if (availableWidth !== containerWidth || finalHeight !== containerHeight) {
+                  console.log('📦 Container ref set, updating dimensions:', {
+                    from: { width: containerWidth, height: containerHeight },
+                    to: { width: availableWidth, height: finalHeight }
+                  });
+                  setContainerHeight(finalHeight);
+                  setContainerWidth(availableWidth);
+                }
+              }
+            }}
             sx={{ 
               flex: 1, 
               bgcolor: '#f5f5f5',
               display: 'flex',
               justifyContent: 'center',
-              overflow: 'hidden',
+              overflow: 'auto',
               minHeight: 400,
               height: '100%'
             }}
@@ -260,7 +292,7 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
             <List
               ref={listRef}
               height={containerHeight}
-              width={containerWidth}
+              width={Math.max(containerWidth, pageWidth)}
               itemCount={visiblePages.length}
               itemSize={itemHeight}
               itemData={itemData}

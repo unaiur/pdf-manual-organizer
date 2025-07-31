@@ -198,13 +198,26 @@ function App() {
     setFitWidthScale(newFitWidthScale);
     setFitHeightScale(newFitHeightScale);
     
-    // Auto-set the scale when PDF loads based on the current zoom mode
+    // Always set the scale when PDF loads based on the current zoom mode, not just conditionally
     if (zoomMode === 'fit-width') {
       setPdfScale(newFitWidthScale);
     } else if (zoomMode === 'fit-height') {
       setPdfScale(newFitHeightScale);
     }
+    // If in manual mode, keep the current scale
   };
+
+  // Ensure proper scale initialization when zoom mode and fit scales are available
+  useEffect(() => {
+    // Only trigger if we have a selected PDF, valid calculated fit scales (not default 1), and scale is still at default
+    if (selectedPdf && fitWidthScale !== 1 && fitHeightScale !== 1 && pdfScale === 1) {
+      if (zoomMode === 'fit-width') {
+        setPdfScale(fitWidthScale);
+      } else if (zoomMode === 'fit-height') {
+        setPdfScale(fitHeightScale);
+      }
+    }
+  }, [selectedPdf, zoomMode, fitWidthScale, fitHeightScale, pdfScale]);
 
   const handleZoomIn = () => {
     setZoomMode('manual');
