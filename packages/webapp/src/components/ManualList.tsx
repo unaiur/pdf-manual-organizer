@@ -9,6 +9,7 @@ import QrCodeIcon from '@mui/icons-material/QrCode';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import type { PdfIndexEntry, TagSection } from '../types';
+import { getTagValues } from '../hooks/useIndexData';
 
 interface ManualListProps {
   pdfs: PdfIndexEntry[];
@@ -34,37 +35,44 @@ export default function ManualList({
   const isIPhone = /iPhone/i.test(navigator.userAgent);
   const [expandedTags, setExpandedTags] = useState<Record<string, boolean>>({});
 
+  // Simple filtering logic for debugging
   const filteredPdfs = pdfs.filter((pdf) => {
-    for (const section of tagSections) {
-      const selected = selectedTags[section.key];
-      if (selected && selected.size > 0) {
-        if (["brand","model","device","manualType"].includes(section.key)) {
-          if (!selected.has((pdf as any)[section.key])) return false;
-        } else {
-          const allTags = [...pdf.tags, ...pdf.extraTags];
-          let found = false;
-          Array.from(selected).forEach((tag) => {
-            if (allTags.includes(`${section.key}:${tag}`) || allTags.includes(tag)) {
-              found = true;
-            }
-          });
-          if (!found) return false;
+    // If no search query and no selected tags, show all PDFs
+    const hasSearchQuery = searchQuery && searchQuery.trim();
+    const hasSelectedTags = Object.values(selectedTags).some(set => set && set.size > 0);
+    
+    if (!hasSearchQuery && !hasSelectedTags) {
+      return true; // Show all PDFs when no filters applied
+    }
+    
+    const values = getTagValues(pdf);
+    
+    // Check tag filters
+    if (hasSelectedTags) {
+      for (const section of tagSections) {
+        const selected = selectedTags[section.key];
+        if (selected && selected instanceof Set && selected.size > 0) {
+          if (["brand","model","device","manualType"].includes(section.key)) {
+            const tagValue = values[section.key as keyof typeof values];
+            if (!tagValue || !selected.has(tagValue)) return false;
+          } else {
+            const allTags = [...pdf.tags];
+            let found = false;
+            Array.from(selected).forEach((tag) => {
+              if (allTags.includes(`${section.key}=${tag}`) || allTags.includes(tag)) {
+                found = true;
+              }
+            });
+            if (!found) return false;
+          }
         }
       }
     }
     
-    if (searchQuery) {
+    // Check search query
+    if (hasSearchQuery) {
       const q = searchQuery.toLowerCase();
-      const fields = [
-        pdf.filename,
-        pdf.title,
-        pdf.brand,
-        pdf.model,
-        pdf.device,
-        pdf.manualType,
-        ...pdf.tags,
-        ...pdf.extraTags,
-      ].join(' ').toLowerCase();
+      const fields = [pdf.filename, ...pdf.tags].join(' ').toLowerCase();
       if (!fields.includes(q)) return false;
     }
     
@@ -80,28 +88,32 @@ export default function ManualList({
       )}
 
       {filteredPdfs.map((pdf) => (
-        <ListItem 
-          key={pdf.hash} 
-          alignItems="flex-start" 
-          sx={{ 
-            mb: 1, 
-            borderRadius: 2, 
-            boxShadow: 1, 
-            bgcolor: 'background.paper', 
-            py: { xs: 1.5, sm: 2 }, 
-            flexDirection: { xs: 'column', sm: 'row' } 
-          }}
-        >
-          <Box sx={{ flexGrow: 1, width: '100%' }}>
-            <Typography variant="subtitle1" fontWeight={600}>
-              {pdf.brand} {pdf.model} — {pdf.device} ({pdf.manualType})
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {pdf.filename}
-            </Typography>
-            
+      <ListItem 
+        key={pdf.hash} 
+        alignItems="flex-start" 
+        sx={{ 
+          mb: 1, 
+          borderRadius: 2, 
+          boxShadow: 1, 
+          bgcolor: 'background.paper', 
+          py: { xs: 1.5, sm: 2 }, 
+          flexDirection: { xs: 'column', sm: 'row' } 
+        }}
+      >
+        <Box sx={{ flexGrow: 1, width: '100%' }}>
+          {(() => {
+            const values = getTagValues(pdf);
+            return (
+              <Typography variant="subtitle1" fontWeight={600}>
+                {values.brand} {values.model} — {values.device} ({values.manualType})
+              </Typography>
+            );
+          })()}
+          <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+            {pdf.filename}
+          </Typography>            
             {(() => {
-              const allTags = [...pdf.extraTags, ...pdf.tags];
+              const allTags = [...pdf.tags];
               const isExpanded = expandedTags[pdf.hash] !== undefined ? expandedTags[pdf.hash] : !isMobile;
               const shownTags = isExpanded ? allTags : allTags.slice(0, 2);
               const hasMore = allTags.length > 2;

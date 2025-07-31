@@ -7,13 +7,7 @@ interface PdfIndexEntry {
   path: string;
   filename: string;
   hash: string;
-  title: string;
-  brand: string;
-  model: string;
-  device: string;
-  manualType: string;
   tags: string[];
-  extraTags: string[];
   pages: number;
   lastModified: string;
 }
@@ -63,23 +57,45 @@ export async function buildIndex(rootDir: string, outputPath: string) {
     console.log(`[INDEX] Processed: ${pdfPath}`);
     console.log(`[INDEX] Extracted: brand='${llmMeta.brand}', model='${llmMeta.model}', device='${llmMeta.device}', manualType='${llmMeta.manualType}'`);
     const extraTags = tagMap[path.resolve(pdfPath)] || [];
-    const tags = [
+    
+    // Create auto-discovered tags from LLM metadata only
+    const autoTags = [
       llmMeta.brand ? `brand=${llmMeta.brand}` : '',
       llmMeta.model ? `model=${llmMeta.model}` : '',
       llmMeta.device ? `device=${llmMeta.device}` : '',
       llmMeta.manualType ? `manualType=${llmMeta.manualType}` : ''
     ].filter(Boolean);
+    
+    // Merge tags with extraTags overriding auto-discovered tags
+    const tagMap2: Record<string, string> = {};
+    
+    // First add auto-discovered tags
+    autoTags.forEach(tag => {
+      const [key, value] = tag.split('=', 2);
+      tagMap2[key] = value;
+    });
+    
+    // Then add extraTags, which will overwrite any matching keys
+    extraTags.forEach(tag => {
+      if (tag.includes('=')) {
+        const [key, value] = tag.split('=', 2);
+        tagMap2[key] = value;
+      } else {
+        // Non-key=value tags are added as-is
+        tagMap2[tag] = tag;
+      }
+    });
+    
+    // Convert back to array format, handling non-key=value tags
+    const mergedTags = Object.entries(tagMap2).map(([key, value]) => 
+      key === value ? key : `${key}=${value}`
+    );
+    
     pdfEntries.push({
       path: relPath,
       filename: path.basename(pdfPath),
       hash,
-      title: meta.title || '',
-      brand: llmMeta.brand,
-      model: llmMeta.model,
-      device: llmMeta.device,
-      manualType: llmMeta.manualType,
-      tags,
-      extraTags,
+      tags: mergedTags,
       pages: meta.pages,
       lastModified: stat.mtime.toISOString()
     });

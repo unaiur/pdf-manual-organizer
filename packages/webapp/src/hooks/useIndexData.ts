@@ -1,5 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { IndexData, GroupedTags, TagSection } from '../types';
+import type { IndexData, GroupedTags, TagSection, PdfIndexEntry } from '../types';
+
+// Helper function to extract a value from tags array
+function getTagValue(tags: string[], key: string): string | undefined {
+  const tag = tags.find(t => t.startsWith(`${key}=`));
+  return tag ? tag.split('=', 2)[1] : undefined;
+}
+
+// Helper function to get all tag values for display and filtering
+export function getTagValues(pdf: PdfIndexEntry) {
+  return {
+    brand: getTagValue(pdf.tags, 'brand') || '',
+    model: getTagValue(pdf.tags, 'model') || '',
+    device: getTagValue(pdf.tags, 'device') || '',
+    manualType: getTagValue(pdf.tags, 'manualType') || ''
+  };
+}
 
 export function useIndexData() {
   const [index, setIndex] = useState<IndexData | null>(null);
@@ -36,13 +52,15 @@ export function useGroupedTags(index: IndexData | null): GroupedTags | null {
     const other: Record<string, Set<string>> = {};
 
     index.pdfs.forEach((pdf) => {
-      if (pdf.brand) brand.add(pdf.brand);
-      if (pdf.model) model.add(pdf.model);
-      if (pdf.device) device.add(pdf.device);
-      if (pdf.manualType) manualType.add(pdf.manualType);
+      const values = getTagValues(pdf);
       
-      [...pdf.tags, ...pdf.extraTags].forEach((t) => {
-        const match = t.match(/^([a-zA-Z0-9_-]+):(.*)$/);
+      if (values.brand) brand.add(values.brand);
+      if (values.model) model.add(values.model);
+      if (values.device) device.add(values.device);
+      if (values.manualType) manualType.add(values.manualType);
+      
+      pdf.tags.forEach((t) => {
+        const match = t.match(/^([a-zA-Z0-9_-]+)=(.*)$/);
         if (match) {
           const key = match[1];
           const value = match[2];

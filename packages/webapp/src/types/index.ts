@@ -2,13 +2,7 @@ export interface PdfIndexEntry {
   path: string;
   filename: string;
   hash: string;
-  title: string;
-  brand: string;
-  model: string;
-  device: string;
-  manualType: string;
   tags: string[];
-  extraTags: string[];
   pages: number;
   lastModified: string;
 }
