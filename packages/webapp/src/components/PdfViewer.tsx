@@ -227,14 +227,27 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
   // Handle initial page scrolling
   useEffect(() => {
     if (initialPage && initialPage > 0 && visiblePages.length > 0 && listRef.current) {
-      const visibleIndex = visiblePages.findIndex(pageNum => pageNum === initialPage);
-      if (visibleIndex !== -1) {
+      let targetPageIndex = visiblePages.findIndex(pageNum => pageNum === initialPage);
+      
+      // If the initial page is hidden, find the next available page or last visible page
+      if (targetPageIndex === -1) {
+        // Find the first visible page that is >= initialPage
+        targetPageIndex = visiblePages.findIndex(pageNum => pageNum >= initialPage);
+        
+        // If no page >= initialPage exists (all remaining pages are hidden), 
+        // use the last visible page
+        if (targetPageIndex === -1) {
+          targetPageIndex = visiblePages.length - 1;
+        }
+      }
+      
+      if (targetPageIndex !== -1) {
         setTimeout(() => {
-          listRef.current?.scrollToItem(visibleIndex, 'start');
+          listRef.current?.scrollToItem(targetPageIndex, 'start');
         }, 100);
       }
     }
-  }, [initialPage, visiblePages]);
+  }, [initialPage, visiblePages, containerHeight, containerWidth]);
 
   const itemData = useMemo(() => ({
     visiblePages,
