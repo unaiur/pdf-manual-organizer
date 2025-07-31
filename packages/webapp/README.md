@@ -2,12 +2,12 @@
 
 ## Static Resource Directory (Monorepo Symlink)
 
-This app requires `index.json` and the `pdf` folder to be available in the monorepo's `public` directory (at the root of the repository). The webapp now uses a symlink at `packages/webapp/public` pointing to this shared directory.
+This app requires the `pdf` folder to be available at the root of the repository. The webapp now uses a symlink at `packages/webapp/public/pdf` pointing to this shared directory.
 
 **You do not need to copy or sync files manually.**
 
-- If you add or update manuals or the index, make sure they are present in the monorepo's `public` directory.
-- The webapp will always serve static assets from the shared monorepo `public` directory via the symlink.
+- If you add or update manuals or the index, make sure they are present in the monorepo's `pdf` directory.
+- The webapp will always serve static assets from the shared monorepo `pdf` directory via the symlink.
 
 ---
 

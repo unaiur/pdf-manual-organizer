@@ -27,7 +27,7 @@ export async function buildIndex(rootDir: string, outputPath: string) {
   }
 
   // Load LLM cache
-  const cachePath = path.resolve(rootDir, '../../llm-cache.json');
+  const cachePath = path.resolve(rootDir, 'llm-cache.json');
   let llmCache: Record<string, any> = {};
   if (fs.existsSync(cachePath)) {
     try {
@@ -97,8 +97,8 @@ export async function buildIndex(rootDir: string, outputPath: string) {
 
 // CLI usage
 if (require.main === module) {
-  const rootDir = process.argv[2] || path.resolve(__dirname, '../../../public/pdf');
-  const outputPath = process.argv[3] || path.resolve(__dirname, '../../../public/index.json');
+  const rootDir = process.argv[2] || path.resolve(__dirname, '../../../pdf');
+  const outputPath = process.argv[3] || path.resolve(rootDir, 'index.json');
   buildIndex(rootDir, outputPath).then(() => {
     console.log('Index built at', outputPath);
   });

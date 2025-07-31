@@ -119,7 +119,7 @@ function App() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
    useEffect(() => {
-     fetch('/index.json')
+     fetch('/pdf/index.json')
        .then((res) => {
          if (!res.ok) throw new Error('Failed to load index.json');
          return res.json();

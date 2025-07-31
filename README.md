@@ -13,11 +13,10 @@ A web application to manage and search through PDF manuals for home devices.
 ## Project Structure
 - `indexer/`: PDF processing and indexing tool
 - `src/webapp/`: React web application source code
-- `public/dist/`: Web app build artifacts
-- `public/pdf/`: PDF storage directory
+- `pdf/`: PDF storage directory
 
 ## Setup and Usage
-1. Place PDF manuals in `public/pdf/` directory
+1. Place PDF manuals in `pdf/` directory
 2. Create `.tags` files for additional tags (one tag per line)
 3. Build the JSON index:
 
@@ -39,9 +38,9 @@ A web application to manage and search through PDF manuals for home devices.
      npm install
      npm run build-index
      ```
-   - This will generate a `public/index.json` file with extracted metadata and tags.
+   - This will generate a `pdf/index.json` file with extracted metadata and tags.
 
    - The indexer will now log all OpenAI requests and responses, as well as the extracted fields for each PDF.
-   - LLM extraction results are cached in `public/llm-cache.json` and only reprocessed if the PDF file changes (hash changes). To force reprocessing, rename the PDF file.
+   - LLM extraction results are cached in `pdf/llm-cache.json` and only reprocessed if the PDF file changes (hash changes). To force reprocessing, rename the PDF file.
 
 4. Start web server to access the application
