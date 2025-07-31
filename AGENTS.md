@@ -23,6 +23,16 @@
 - **Testing:** Use React Testing Library and Jest. Place tests alongside source files.
 - **Other:** Keep code modular and avoid large files. Document complex logic with comments.
 
+## Technical Implementation Notes
+
+### PDF Viewer Memory Optimization
+The PDF viewer uses react-window virtualization to handle large documents efficiently:
+- Only renders pages visible in the viewport plus 1 overscan page
+- Significantly reduces memory usage on mobile devices
+- Prevents out-of-memory crashes with large PDF files
+- Maintains smooth scrolling performance
+- Page hiding feature works seamlessly with virtualization by filtering the visible pages array
+
 ---
 
 If you add linting or formatting configs, update this file accordingly.

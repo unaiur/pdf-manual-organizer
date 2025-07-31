@@ -7,13 +7,66 @@ function getTagValue(tags: string[], key: string): string | undefined {
   return tag ? tag.split('=', 2)[1] : undefined;
 }
 
+// Helper function to parse page ranges from hide-page-range tag
+// Format: "1-18,37-" means hide pages 1-18 and 37 to end
+export function parseHiddenPageRanges(tags: string[], totalPages: number): number[] {
+  const hideRangeTag = tags.find(t => t.startsWith('!hide-page-range='));
+  if (!hideRangeTag) return [];
+  
+  const rangeString = hideRangeTag.split('=', 2)[1];
+  const hiddenPages = new Set<number>();
+  
+  rangeString.split(',').forEach(range => {
+    range = range.trim();
+    if (range.includes('-')) {
+      const [start, end] = range.split('-').map(s => s.trim());
+      const startPage = parseInt(start, 10);
+      const endPage = end === '' ? totalPages : parseInt(end, 10);
+      
+      if (!isNaN(startPage)) {
+        const actualEnd = isNaN(endPage) ? totalPages : Math.min(endPage, totalPages);
+        for (let i = Math.max(1, startPage); i <= actualEnd; i++) {
+          hiddenPages.add(i);
+        }
+      }
+    } else {
+      const page = parseInt(range, 10);
+      if (!isNaN(page) && page >= 1 && page <= totalPages) {
+        hiddenPages.add(page);
+      }
+    }
+  });
+  
+  return Array.from(hiddenPages).sort((a, b) => a - b);
+}
+
+// Helper function to get visible pages (excluding hidden ones)
+export function getVisiblePages(totalPages: number, hiddenPages: number[]): number[] {
+  const hiddenSet = new Set(hiddenPages);
+  const visiblePages: number[] = [];
+  
+  for (let i = 1; i <= totalPages; i++) {
+    if (!hiddenSet.has(i)) {
+      visiblePages.push(i);
+    }
+  }
+  
+  return visiblePages;
+}
+
+// Helper function to filter out option tags (starting with !)
+function filterDisplayTags(tags: string[]): string[] {
+  return tags.filter(tag => !tag.startsWith('!'));
+}
+
 // Helper function to get all tag values for display and filtering
 export function getTagValues(pdf: PdfIndexEntry) {
+  const displayTags = filterDisplayTags(pdf.tags);
   return {
-    brand: getTagValue(pdf.tags, 'brand') || '',
-    model: getTagValue(pdf.tags, 'model') || '',
-    device: getTagValue(pdf.tags, 'device') || '',
-    manualType: getTagValue(pdf.tags, 'manualType') || ''
+    brand: getTagValue(displayTags, 'brand') || '',
+    model: getTagValue(displayTags, 'model') || '',
+    device: getTagValue(displayTags, 'device') || '',
+    manualType: getTagValue(displayTags, 'manualType') || ''
   };
 }
 
@@ -59,7 +112,10 @@ export function useGroupedTags(index: IndexData | null): GroupedTags | null {
       if (values.device) device.add(values.device);
       if (values.manualType) manualType.add(values.manualType);
       
-      pdf.tags.forEach((t) => {
+      // Filter out option tags (starting with !) from UI display
+      const displayTags = filterDisplayTags(pdf.tags);
+      
+      displayTags.forEach((t) => {
         const match = t.match(/^([a-zA-Z0-9_-]+)=(.*)$/);
         if (match) {
           const key = match[1];

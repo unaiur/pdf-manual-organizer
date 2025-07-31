@@ -113,7 +113,8 @@ export default function ManualList({
             {pdf.filename}
           </Typography>            
             {(() => {
-              const allTags = [...pdf.tags];
+              // Filter out option tags (starting with !) from display
+              const allTags = pdf.tags.filter(tag => !tag.startsWith('!'));
               const isExpanded = expandedTags[pdf.hash] !== undefined ? expandedTags[pdf.hash] : !isMobile;
               const shownTags = isExpanded ? allTags : allTags.slice(0, 2);
               const hasMore = allTags.length > 2;
