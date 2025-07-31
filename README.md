@@ -50,6 +50,45 @@ A web application to manage and search through PDF manuals for home devices.
 
 4. Start web server to access the application
 
+   **Option A: Using nginx container (recommended for production)**
+   
+   Create a `docker-compose.yml` file in the project root:
+   
+   ```yaml
+   version: '3.8'
+   services:
+     pdf-organizer:
+       image: nginx:alpine
+       ports:
+         - "8080:80"
+       volumes:
+         - ./packages/webapp/build:/usr/share/nginx/html:ro
+         - ./packages/webapp/public/pdf:/usr/share/nginx/html/pdf:ro
+       restart: unless-stopped
+   ```
+   
+   Build the webapp and start the container:
+   
+   ```sh
+   cd packages/webapp
+   npm install
+   npm run build
+   cd ../..
+   docker-compose up -d
+   ```
+   
+   Access the application at http://localhost:8080
+   
+   **Option B: Development server**
+   
+   ```sh
+   cd packages/webapp
+   npm install
+   npm start
+   ```
+   
+   Access the application at http://localhost:3000
+
 ## Page Range Hiding
 You can hide unwanted pages from PDF display using option tags in `.tags` files:
 
