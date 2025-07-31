@@ -1,6 +1,24 @@
 {
-  "generatedAt": "2025-07-29T12:32:22.153Z",
+  "generatedAt": "2025-07-29T13:41:43.947Z",
   "pdfs": [
+    {
+      "path": "lg/fridge.pdf",
+      "filename": "fridge.pdf",
+      "hash": "sha256:8b2e99614c6110086833a865d23c64e88a6ad7374d9a01a2f4b8ba4c4ea9c338",
+      "title": "global_main.book.book",
+      "brand": "LG",
+      "model": "",
+      "device": "fridge and freezer",
+      "manualType": "owner's manual",
+      "tags": [
+        "brand=LG",
+        "device=fridge and freezer",
+        "manualType=owner's manual"
+      ],
+      "extraTags": [],
+      "pages": 50,
+      "lastModified": "2021-09-11T07:26:03.000Z"
+    },
     {
       "path": "siemens/EQ700-coffee-maker.pdf",
       "filename": "EQ700-coffee-maker.pdf",

@@ -18,10 +18,18 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import QrCodeIcon from '@mui/icons-material/QrCode';
 import { useTheme, alpha, styled } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import InputBase from '@mui/material/InputBase';
 import SearchIcon from '@mui/icons-material/Search';
+import QRCode from 'react-qr-code';
+import { toPng } from 'html-to-image';
 
 // Styled components must come after all imports
 const Search = styled('div')(({ theme }) => ({
@@ -95,6 +103,11 @@ function App() {
   // Track the currently opened PDF (null = none open)
   const [selectedPdf, setSelectedPdf] = useState<PdfIndexEntry | null>(null);
   const prevSelectedPdf = useRef<PdfIndexEntry | null>(null);
+
+  // QR code modal state
+  const [qrPdf, setQrPdf] = useState<PdfIndexEntry | null>(null);
+  const [qrDownloadLoading, setQrDownloadLoading] = useState(false);
+  const [qrPage, setQrPage] = useState(1);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -206,8 +219,6 @@ function App() {
         set?.forEach((v) => mainTypeValues.add(v));
       });
       const mainTypes = ["brand", "model", "device", "manualType"];
-      console.log('DEBUG groupedTags.other:', groupedTags.other);
-      console.log('DEBUG mainTypeValues:', Array.from(mainTypeValues));
       Object.keys(groupedTags.other)
         .sort()
         .forEach((key) => {
@@ -286,271 +297,367 @@ function App() {
           </Accordion>
         ))}
       </List>
-    </Box>
-  );
+     </Box>
+   );
 
-
-
-  return (
-    <Box sx={{ display: 'flex' }}>
-      {/* AppBar always shown, but will add close button in next step */}
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar>
-          {isMobile && !selectedPdf && (
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Manuals Library
-          </Typography>
-          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}>
-            {selectedPdf ? (
-              <IconButton
-                color="inherit"
-                aria-label="close pdf"
-                edge="end"
-                onClick={() => setSelectedPdf(null)}
-                sx={{ ml: 2 }}
-              >
-                <CloseIcon />
-              </IconButton>
-            ) : (
-              <Search>
-                <SearchIconWrapper>
-                  <SearchIcon />
-                </SearchIconWrapper>
-                 <StyledInputBase
-                   placeholder="Search manuals…"
-                   inputProps={{ 'aria-label': 'search' }}
-                   value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
-                   sx={{ minWidth: isMobile ? 120 : 200 }}
-                   inputRef={searchInputRef}
-                 />              </Search>
-            )}
-          </Box>        </Toolbar>
-      </AppBar>
-      {/* Hide Drawer when PDF is open */}
-      {!selectedPdf && (
-        <nav>
-          <Drawer
-            variant={isMobile ? 'temporary' : 'permanent'}
-            open={isMobile ? drawerOpen : true}
-            onClose={handleDrawerToggle}
-            ModalProps={{ keepMounted: true }}
+// QR Code Modal
+    const qrUrl = qrPdf ? `${window.location.origin}/pdf/${qrPdf.path}#page=${qrPage}` : '';
+   return (
+     <Box sx={{ display: 'flex' }}>
+       {/* AppBar always shown, but will add close button in next step */}
+       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+         <Toolbar>
+           {isMobile && !selectedPdf && (
+             <IconButton
+               color="inherit"
+               aria-label="open drawer"
+               edge="start"
+               onClick={handleDrawerToggle}
+               sx={{ mr: 2 }}
+             >
+               <MenuIcon />
+             </IconButton>
+           )}
+           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+             Manuals Library
+           </Typography>
+           <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}>
+             {selectedPdf ? (
+               <IconButton
+                 color="inherit"
+                 aria-label="close pdf"
+                 edge="end"
+                 onClick={() => setSelectedPdf(null)}
+                 sx={{ ml: 2 }}
+               >
+                 <CloseIcon />
+               </IconButton>
+             ) : (
+               <Search>
+                 <SearchIconWrapper>
+                   <SearchIcon />
+                 </SearchIconWrapper>
+                  <StyledInputBase
+                    placeholder="Search manuals…"
+                    inputProps={{ 'aria-label': 'search' }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    sx={{ minWidth: isMobile ? 120 : 200 }}
+                    inputRef={searchInputRef}
+                  />              </Search>
+             )}
+           </Box>        </Toolbar>
+       </AppBar>
+       {/* Hide Drawer when PDF is open */}
+       {!selectedPdf && (
+         <nav>
+           <Drawer
+             variant={isMobile ? 'temporary' : 'permanent'}
+             open={isMobile ? drawerOpen : true}
+             onClose={handleDrawerToggle}
+             ModalProps={{ keepMounted: true }}
+             sx={{
+               width: drawerWidth,
+               flexShrink: 0,
+               '& .MuiDrawer-paper': {
+                 width: drawerWidth,
+                 boxSizing: 'border-box',
+               },
+               display: { xs: 'block', sm: 'block' },
+             }}
+           >
+             {drawer}
+           </Drawer>
+         </nav>
+       )}
+       <Box
+         component="main"
+         sx={{
+           flexGrow: 1,
+           p: 3,
+           width: !selectedPdf ? { sm: `calc(100% - ${drawerWidth}px)` } : '100%',
+           mt: 8,
+         }}
+       >
+         {selectedPdf ? (
+           // PDF viewer mode
+           <Box sx={{ width: '100%', height: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+             <Typography variant="h6" sx={{ mb: 2 }}>
+   {selectedPdf.brand} {selectedPdf.model} — {selectedPdf.device} ({selectedPdf.manualType})
+ </Typography>
+ <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+   {selectedPdf.filename}
+ </Typography>
+             <iframe
+               src={`/pdf/${selectedPdf.path}`}
+               title={selectedPdf.title || selectedPdf.filename}
+               style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
+             />
+           </Box>
+         ) : (
+           // Main page mode
+           <>
+             {loading && <CircularProgress />}
+             {error && <Alert severity="error">{error}</Alert>}
+             {index && (
+               <>
+                 <Alert severity="success" sx={{ mb: 2 }}>
+                   Loaded {index.pdfs.length} manuals.
+                   {Object.keys(selectedTags).some((section) => selectedTags[section]?.size > 0) && (
+                     <span style={{ marginLeft: 8 }}>
+                       (Filtered by tag:
+                       {Object.entries(selectedTags)
+                         .filter(([_, set]) => set.size > 0)
+                         .map(([section, set]) =>
+                           ` ${section}: [${Array.from(set).join(', ')}]`
+                         ).join(';')}
+                       )
+                     </span>
+                   )}
+                   {searchQuery && (
+                     <span style={{ marginLeft: 8 }}>
+                       (Search: <b>{searchQuery}</b>)
+                     </span>
+                   )}
+                 </Alert>
+                 <List>
+<>
+{index.pdfs
+  .filter((pdf) => {
+    // Tag filter (multiple tags per section)
+    for (const section of tagSections) {
+      const selected = selectedTags[section.key];
+      if (selected && selected.size > 0) {
+        // For main types, check the field; for others, check tags/extraTags
+        if (["brand","model","device","manualType"].includes(section.key)) {
+          if (!selected.has((pdf as any)[section.key])) return false;
+        } else {
+          // For user-defined tags, check if any selected tag is present in tags/extraTags
+          const allTags = [...pdf.tags, ...pdf.extraTags];
+          let found = false;
+          Array.from(selected).forEach((tag) => {
+            if (allTags.includes(`${section.key}:${tag}`) || allTags.includes(tag)) {
+              found = true;
+            }
+          });
+          if (!found) return false;
+        }
+      }
+    }
+    // Search filter (case-insensitive, matches filename, title, brand, model, device, manualType, tags)
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const fields = [
+        pdf.filename,
+        pdf.title,
+        pdf.brand,
+        pdf.model,
+        pdf.device,
+        pdf.manualType,
+        ...pdf.tags,
+        ...pdf.extraTags,
+      ].join(' ').toLowerCase();
+      if (!fields.includes(q)) return false;
+    }
+    return true;
+  })
+  .map((pdf) => (
+    <ListItem key={pdf.hash} alignItems="flex-start" sx={{ mb: 1, borderRadius: 2, boxShadow: 1, bgcolor: 'background.paper', py: { xs: 1.5, sm: 2 } }}>
+      <Box sx={{ flexGrow: 1 }}>
+        <Typography variant="subtitle1" fontWeight={600}>
+          {pdf.brand} {pdf.model} — {pdf.device} ({pdf.manualType})
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {pdf.filename}
+        </Typography>
+        <Box sx={{ mt: 0.5, display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, overflowX: { xs: 'auto', sm: 'visible' } }}>
+          {[...pdf.tags, ...pdf.extraTags].map((tag) => (
+            <Box key={tag} sx={{ bgcolor: 'primary.light', color: 'primary.contrastText', px: 1, borderRadius: 1, fontSize: 12, whiteSpace: 'nowrap' }}>
+              {tag}
+            </Box>
+          ))}
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          Pages: {pdf.pages} | Last modified: {pdf.lastModified}
+        </Typography>
+      </Box>
+      <Box sx={{ ml: 2, alignSelf: 'center', display: 'flex', gap: 1 }}>
+        <button
+          onClick={() => setSelectedPdf(pdf)}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            margin: 0,
+            cursor: 'pointer',
+            textDecoration: 'none',
+          }}
+        >
+          <Box
             sx={{
-              width: drawerWidth,
-              flexShrink: 0,
-              '& .MuiDrawer-paper': {
-                width: drawerWidth,
-                boxSizing: 'border-box',
-              },
-              display: { xs: 'block', sm: 'block' },
+              bgcolor: 'primary.main',
+              color: 'primary.contrastText',
+              px: 2,
+              py: 1.2,
+              minHeight: 44,
+              borderRadius: 1,
+              fontWeight: 500,
+              fontSize: 14,
+              textAlign: 'center',
+              transition: 'background 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              '&:hover': { bgcolor: 'primary.dark' },
             }}
           >
-            {drawer}
-          </Drawer>
-        </nav>
-      )}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: !selectedPdf ? { sm: `calc(100% - ${drawerWidth}px)` } : '100%',
-          mt: 8,
-        }}
-      >
-        {selectedPdf ? (
-          // PDF viewer mode
-          <Box sx={{ width: '100%', height: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-  {selectedPdf.brand} {selectedPdf.model} — {selectedPdf.device} ({selectedPdf.manualType})
-</Typography>
-<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-  {selectedPdf.filename}
-</Typography>
-            <iframe
-              src={`/pdf/${selectedPdf.path}`}
-              title={selectedPdf.title || selectedPdf.filename}
-              style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
-            />
+            View PDF
           </Box>
-        ) : (
-          // Main page mode
-          <>
-            {loading && <CircularProgress />}
-            {error && <Alert severity="error">{error}</Alert>}
-            {index && (
-              <>
-                <Alert severity="success" sx={{ mb: 2 }}>
-                  Loaded {index.pdfs.length} manuals.
-                  {Object.keys(selectedTags).some((section) => selectedTags[section]?.size > 0) && (
-                    <span style={{ marginLeft: 8 }}>
-                      (Filtered by tag:
-                      {Object.entries(selectedTags)
-                        .filter(([_, set]) => set.size > 0)
-                        .map(([section, set]) =>
-                          ` ${section}: [${Array.from(set).join(', ')}]`
-                        ).join(';')}
-                      )
-                    </span>
-                  )}
-                  {searchQuery && (
-                    <span style={{ marginLeft: 8 }}>
-                      (Search: <b>{searchQuery}</b>)
-                    </span>
-                  )}
-                </Alert>
-                <List>
-                  {index.pdfs
-                    .filter((pdf) => {
-                      // Tag filter (multiple tags per section)
-                      for (const section of tagSections) {
-                        const selected = selectedTags[section.key];
-                        if (selected && selected.size > 0) {
-                          // For main types, check the field; for others, check tags/extraTags
-                          if (["brand","model","device","manualType"].includes(section.key)) {
-                            if (!selected.has((pdf as any)[section.key])) return false;
-                          } else {
-                            // For user-defined tags, check if any selected tag is present in tags/extraTags
-                            const allTags = [...pdf.tags, ...pdf.extraTags];
-                            let found = false;
-                            Array.from(selected).forEach((tag) => {
-                              if (allTags.includes(`${section.key}:${tag}`) || allTags.includes(tag)) {
-                                found = true;
-                              }
-                            });
-                            if (!found) return false;
-                          }
-                        }
-                      }
-                      // Search filter (case-insensitive, matches filename, title, brand, model, device, manualType, tags)
-                      if (searchQuery) {
-                        const q = searchQuery.toLowerCase();
-                        const fields = [
-                          pdf.filename,
-                          pdf.title,
-                          pdf.brand,
-                          pdf.model,
-                          pdf.device,
-                          pdf.manualType,
-                          ...pdf.tags,
-                          ...pdf.extraTags,
-                        ].join(' ').toLowerCase();
-                        if (!fields.includes(q)) return false;
-                      }
-                      return true;
-                    })
-                    .map((pdf) => (
-                      <ListItem key={pdf.hash} alignItems="flex-start" sx={{ mb: 1, borderRadius: 2, boxShadow: 1, bgcolor: 'background.paper', py: { xs: 1.5, sm: 2 } }}>
-                        <Box sx={{ flexGrow: 1 }}>
-<Typography variant="subtitle1" fontWeight={600}>
-  {pdf.brand} {pdf.model} — {pdf.device} ({pdf.manualType})
-</Typography>
-<Typography variant="body2" color="text.secondary">
-  {pdf.filename}
-</Typography>                          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, overflowX: { xs: 'auto', sm: 'visible' } }}>
-                            {[...pdf.tags, ...pdf.extraTags].map((tag) => (
-                              <Box key={tag} sx={{ bgcolor: 'primary.light', color: 'primary.contrastText', px: 1, borderRadius: 1, fontSize: 12, whiteSpace: 'nowrap' }}>
-                                {tag}
-                              </Box>
-                            ))}
-                          </Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                            Pages: {pdf.pages} | Last modified: {pdf.lastModified}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ ml: 2, alignSelf: 'center' }}>
-                          <button
-                            onClick={() => setSelectedPdf(pdf)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              padding: 0,
-                              margin: 0,
-                              cursor: 'pointer',
-                              textDecoration: 'none',
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                bgcolor: 'primary.main',
-                                color: 'primary.contrastText',
-                                px: 2,
-                                py: 1.2,
-                                minHeight: 44,
-                                borderRadius: 1,
-                                fontWeight: 500,
-                                fontSize: 14,
-                                textAlign: 'center',
-                                transition: 'background 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                '&:hover': { bgcolor: 'primary.dark' },
-                              }}
-                            >
-                              View PDF
-                            </Box>
-                          </button>
-                        </Box>
-                      </ListItem>
-                    ))}
-                  {index.pdfs.filter((pdf) => {
-                    // Tag filter (multiple tags per section)
-                    for (const section of tagSections) {
-                      const selected = selectedTags[section.key];
-                      if (selected && selected.size > 0) {
-                        if (["brand","model","device","manualType"].includes(section.key)) {
-                          if (!selected.has((pdf as any)[section.key])) return false;
-                        } else {
-                          const allTags = [...pdf.tags, ...pdf.extraTags];
-                          let found = false;
-                          Array.from(selected).forEach((tag) => {
-                            if (allTags.includes(`${section.key}:${tag}`) || allTags.includes(tag)) {
-                              found = true;
-                            }
-                          });
-                          if (!found) return false;
-                        }
-                      }
-                    }
-                    if (searchQuery) {
-                      const q = searchQuery.toLowerCase();
-                      const fields = [
-                        pdf.filename,
-                        pdf.title,
-                        pdf.brand,
-                        pdf.model,
-                        pdf.device,
-                        pdf.manualType,
-                        ...pdf.tags,
-                        ...pdf.extraTags,
-                      ].join(' ').toLowerCase();
-                      if (!fields.includes(q)) return false;
-                    }
-                    return true;
-                  }).length === 0 && (
-                    <ListItem>
-                      <ListItemText primary="No manuals found." />
-                    </ListItem>
-                  )}
-                </List>
+        </button>
+        <button
+          onClick={() => { setQrPdf(pdf); setQrPage(1); }}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            margin: 0,
+            cursor: 'pointer',
+            textDecoration: 'none',
+          }}
+          aria-label="Show QR code"
+        >
+          <Box
+            sx={{
+              bgcolor: 'secondary.main',
+              color: 'secondary.contrastText',
+              px: 2,
+              py: 1.2,
+              minHeight: 44,
+              borderRadius: 1,
+              fontWeight: 500,
+              fontSize: 14,
+              textAlign: 'center',
+              transition: 'background 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              '&:hover': { bgcolor: 'secondary.dark' },
+            }}
+          >
+            <QrCodeIcon sx={{ mr: 1 }} /> QR
+          </Box>
+        </button>
+      </Box>
+    </ListItem>
+  ))}
+{index.pdfs.filter((pdf) => {
+  // Tag filter (multiple tags per section)
+  for (const section of tagSections) {
+    const selected = selectedTags[section.key];
+    if (selected && selected.size > 0) {
+      if (["brand","model","device","manualType"].includes(section.key)) {
+        if (!selected.has((pdf as any)[section.key])) return false;
+      } else {
+        const allTags = [...pdf.tags, ...pdf.extraTags];
+        let found = false;
+        Array.from(selected).forEach((tag) => {
+          if (allTags.includes(`${section.key}:${tag}`) || allTags.includes(tag)) {
+            found = true;
+          }
+        });
+        if (!found) return false;
+      }
+    }
+  }
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    const fields = [
+      pdf.filename,
+      pdf.title,
+      pdf.brand,
+      pdf.model,
+      pdf.device,
+      pdf.manualType,
+      ...pdf.tags,
+      ...pdf.extraTags,
+    ].join(' ').toLowerCase();
+    if (!fields.includes(q)) return false;
+  }
+  return true;
+}).length === 0 && (
+  <ListItem>
+    <ListItemText primary="No manuals found." />
+  </ListItem>
+)}
+</>                </List>
               </>
             )}
           </>
         )}
       </Box>
-    </Box>
+      {/* QR Code Modal */}
+<Dialog open={!!qrPdf} onClose={() => { setQrPdf(null); setQrPage(1); }} maxWidth="xs" fullWidth>
+  <DialogTitle>QR Code for PDF</DialogTitle>
+  <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 3 }}>
+    {qrPdf && (
+      <>
+        <Box id="qr-download-container" sx={{ bgcolor: 'white', p: 2, borderRadius: 2, mb: 2 }}>
+          <QRCode value={qrUrl} size={220} />
+        </Box>
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <label htmlFor="qr-page-input" style={{ fontSize: 14 }}>Page:</label>
+          <input
+            id="qr-page-input"
+            type="number"
+            min={1}
+            max={qrPdf.pages || undefined}
+            value={qrPage}
+            onChange={e => {
+              let val = parseInt(e.target.value, 10);
+              if (isNaN(val) || val < 1) val = 1;
+              if (qrPdf.pages && val > qrPdf.pages) val = qrPdf.pages;
+              setQrPage(val);
+            }}
+            style={{ width: 60, fontSize: 16, padding: '2px 6px', borderRadius: 4, border: '1px solid #ccc' }}
+            aria-label="Page number for QR code"
+          />
+          <span style={{ fontSize: 12, color: '#888' }}>/ {qrPdf.pages}</span>
+        </Box>
+      </>
+    )}
+    <Typography variant="body2" sx={{ mt: 1, wordBreak: 'break-all', textAlign: 'center' }}>{qrUrl}</Typography>
+  </DialogContent>
+  <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
+    <Button
+      onClick={async () => {
+        if (!qrPdf) return;
+        setQrDownloadLoading(true);
+        const qrNode = document.getElementById('qr-download-container');
+        if (!qrNode) { setQrDownloadLoading(false); return; }
+        try {
+          const dataUrl = await toPng(qrNode, { backgroundColor: 'white' });
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = `${qrPdf.filename.replace(/\.[^/.]+$/, '')}-qr.png`;
+          link.click();
+        } catch (err) {
+          alert('Failed to generate QR code image.');
+        }
+        setQrDownloadLoading(false);
+      }}
+      color="secondary"
+      variant="contained"
+      disabled={qrDownloadLoading}
+      startIcon={qrDownloadLoading ? <CircularProgress size={18} color="inherit" /> : null}
+      aria-label="Download QR code as PNG"
+    >
+      {qrDownloadLoading ? 'Downloading...' : 'Download QR'}
+    </Button>
+    <Button onClick={() => { setQrPdf(null); setQrPage(1); }} color="primary" variant="outlined" aria-label="Close QR code dialog">Close</Button>
+  </DialogActions>
+</Dialog>    </Box>
   );
 }
 
 export default App;
+
