@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
@@ -91,6 +92,7 @@ function App() {
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isIPhone = /iPhone/i.test(navigator.userAgent);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const prevSelectedPdf = useRef<PdfIndexEntry | null>(null);
 
@@ -211,6 +213,17 @@ function App() {
               <MenuIcon />
             </IconButton>
           )}
+          {isIPhone && selectedPdf && (
+            <IconButton
+              color="inherit"
+              aria-label="back"
+              edge="start"
+              onClick={() => setSelectedPdf(null)}
+              sx={{ mr: 2 }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+          )}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Manuals Library
           </Typography>
@@ -246,15 +259,17 @@ function App() {
                 >
                   <FitScreenIcon />
                 </IconButton>
-                <IconButton
-                  color="inherit"
-                  aria-label="close pdf"
-                  edge="end"
-                  onClick={() => setSelectedPdf(null)}
-                  sx={{ ml: 1 }}
-                >
-                  <CloseIcon />
-                </IconButton>
+                {!isIPhone && (
+                  <IconButton
+                    color="inherit"
+                    aria-label="close pdf"
+                    edge="end"
+                    onClick={() => setSelectedPdf(null)}
+                    sx={{ ml: 1 }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                )}
               </Box>
             ) : (
               <Search>
