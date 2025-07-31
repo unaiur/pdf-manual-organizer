@@ -221,7 +221,9 @@ function App() {
 
   const handleZoomIn = () => {
     setZoomMode('manual');
-    setPdfScale(prev => Math.min(prev * 1.2, 10));
+    // Limit zoom to 3x (300%) on iPhone due to performance/memory constraints, 10x on other devices
+    const maxZoom = isIPhone ? 3 : 10;
+    setPdfScale(prev => Math.min(prev * 1.2, maxZoom));
   };
 
   const handleZoomOut = () => {
@@ -303,14 +305,23 @@ function App() {
                 >
                   <ZoomOutIcon />
                 </IconButton>
-                <Typography variant="body2" color="inherit" sx={{ minWidth: 50, textAlign: 'center' }}>
+                <Typography 
+                  variant="body2" 
+                  color="inherit" 
+                  sx={{ 
+                    minWidth: 50, 
+                    textAlign: 'center',
+                    opacity: pdfScale >= (isIPhone ? 3 : 10) ? 0.7 : 1
+                  }}
+                  title={isIPhone && pdfScale >= 3 ? 'Maximum zoom reached on iPhone' : undefined}
+                >
                   {Math.round(pdfScale * 100)}%
                 </Typography>
                 <IconButton
                   color="inherit"
                   size="small"
                   onClick={handleZoomIn}
-                  disabled={pdfScale >= 10}
+                  disabled={pdfScale >= (isIPhone ? 3 : 10)}
                   aria-label="Zoom in"
                 >
                   <ZoomInIcon />

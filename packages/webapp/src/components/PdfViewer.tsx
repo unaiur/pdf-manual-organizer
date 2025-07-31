@@ -186,16 +186,24 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
       const minHeight = 400;
       const finalHeight = Math.max(availableHeight, minHeight);
       
-      // Only update if dimensions actually changed
-      if (availableWidth !== containerWidth || finalHeight !== containerHeight) {
-        console.log('📐 Container dimensions changing:', { 
-          reason,
-          from: { width: containerWidth, height: containerHeight },
-          to: { width: availableWidth, height: finalHeight }
-        });
-        setContainerHeight(finalHeight);
-        setContainerWidth(availableWidth);
-      }
+      // Update dimensions and log changes
+      setContainerHeight(prevHeight => {
+        if (availableHeight !== prevHeight || finalHeight !== prevHeight) {
+          console.log('📐 Container dimensions changing:', { 
+            reason,
+            from: { width: containerWidth, height: prevHeight },
+            to: { width: availableWidth, height: finalHeight }
+          });
+        }
+        return finalHeight;
+      });
+      
+      setContainerWidth(prevWidth => {
+        if (availableWidth !== prevWidth) {
+          // Logging is handled in setContainerHeight above to avoid duplicate logs
+        }
+        return availableWidth;
+      });
     };
 
     const resizeObserver = new ResizeObserver(() => {
@@ -214,7 +222,7 @@ export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
     };
-  }, [visiblePages.length, loading]); // Removed containerWidth, containerHeight from dependencies
+  }, [visiblePages.length, loading, containerWidth, containerHeight]);
 
   // Handle initial page scrolling
   useEffect(() => {

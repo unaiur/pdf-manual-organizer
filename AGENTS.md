@@ -60,6 +60,12 @@ The PDF viewer implements an accurate zoom system using actual PDF dimensions:
 - Minimal padding: 8px mobile, 16px desktop
 - No hardcoded PDF dimensions - all calculations based on actual file properties
 
+**iPhone Zoom Optimization:**
+- Maximum zoom limited to 300% (3x) on iPhone devices to prevent memory issues and performance degradation
+- Desktop and other devices support up to 1000% (10x) zoom
+- Zoom controls automatically disable and show visual feedback when maximum is reached
+- This prevents PDF viewer failures and slowdowns at high zoom levels on memory-constrained iOS devices
+
 ---
 
 If you add linting or formatting configs, update this file accordingly.
