@@ -66,6 +66,10 @@ The PDF viewer implements an accurate zoom system using actual PDF dimensions:
 - Zoom controls automatically disable and show visual feedback when maximum is reached
 - This prevents PDF viewer failures and slowdowns at high zoom levels on memory-constrained iOS devices
 
+**Text Selection and Copy/Paste:**
+- Text layer rendering enabled on all devices including mobile for text selection and copy/paste functionality
+- Supports standard text selection gestures and copy/paste operations across all platforms
+
 ---
 
 If you add linting or formatting configs, update this file accordingly.

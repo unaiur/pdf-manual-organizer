@@ -50,7 +50,7 @@ function PageItem({ index, style, data }: PageItemProps) {
             pageNumber={pageNumber}
             scale={pageScale}
             renderAnnotationLayer={true}
-            renderTextLayer={!isMobile}
+            renderTextLayer={true}
             loading={
               <Box sx={{ 
                 display: 'flex', 
