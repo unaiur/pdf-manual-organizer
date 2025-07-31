@@ -13,6 +13,9 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Box from '@mui/material/Box';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useTheme, alpha, styled } from '@mui/material/styles';
@@ -118,23 +121,59 @@ function App() {
     setDrawerOpen(!drawerOpen);
   };
 
-  // Tag filtering state
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  // Tag filtering state (multiple tags per section)
+  const [selectedTags, setSelectedTags] = useState<Record<string, Set<string>>>({});
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Compute unique tags from index
-  const allTags = React.useMemo(() => {
-    if (!index) return [];
-    const tagSet = new Set<string>();
+  // Compute grouped tags by type from index
+  const groupedTags = React.useMemo(() => {
+    if (!index) return null;
+    const brand = new Set<string>();
+    const model = new Set<string>();
+    const device = new Set<string>();
+    const manualType = new Set<string>();
+    const other: Record<string, Set<string>> = {};
+
     index.pdfs.forEach((pdf) => {
-      pdf.tags.forEach((t) => tagSet.add(t));
-      pdf.extraTags.forEach((t) => tagSet.add(t));
+      if (pdf.brand) brand.add(pdf.brand);
+      if (pdf.model) model.add(pdf.model);
+      if (pdf.device) device.add(pdf.device);
+      if (pdf.manualType) manualType.add(pdf.manualType);
+      // tags and extraTags may be of the form key:value or just value
+      [...pdf.tags, ...pdf.extraTags].forEach((t) => {
+        // Try to parse key:value
+        const match = t.match(/^([a-zA-Z0-9_\-]+):(.*)$/);
+        if (match) {
+          const key = match[1];
+          const value = match[2];
+          if (["brand","model","device","manualType"].includes(key)) {
+            // Already handled above
+            return;
+          }
+          if (!other[key]) other[key] = new Set<string>();
+          other[key].add(value);
+        } else {
+          // If not key:value, treat as a generic tag
+          if (!other["other"]) other["other"] = new Set<string>();
+          other["other"].add(t);
+        }
+      });
     });
-    return Array.from(tagSet).sort();
+    return { brand, model, device, manualType, other };
   }, [index]);
 
-  const handleTagClick = (tag: string) => {
-    setSelectedTag(tag === selectedTag ? null : tag);
+
+  // Toggle tag selection for a section
+  const handleTagClick = (sectionKey: string, tag: string) => {
+    setSelectedTags((prev) => {
+      const prevSet: Set<string> = prev[sectionKey] ? new Set<string>(Array.from(prev[sectionKey])) : new Set<string>();
+      if (prevSet.has(tag)) {
+        prevSet.delete(tag);
+      } else {
+        prevSet.add(tag);
+      }
+      return { ...prev, [sectionKey]: prevSet };
+    });
     if (isMobile) handleDrawerToggle();
   };
 
@@ -147,6 +186,62 @@ function App() {
   }, [selectedPdf]);
 
   
+  // Prepare grouped tag sections for rendering
+  const tagSections = React.useMemo(() => {
+    if (!groupedTags) return [];
+    const sections: { key: string, tags: string[] }[] = [];
+    // Main types in order
+    const mainTypes = ["brand", "model", "device", "manualType"];
+    mainTypes.forEach((type) => {
+      const set = groupedTags[type as keyof typeof groupedTags] as Set<string>;
+      if (set && set.size > 0) {
+        sections.push({ key: type, tags: Array.from(set).sort() });
+      }
+    });
+    // Other user-defined tag types
+    if (groupedTags.other) {
+      // Gather all main type values for filtering
+      const mainTypeValues = new Set<string>();
+      [groupedTags.brand, groupedTags.model, groupedTags.device, groupedTags.manualType].forEach((set) => {
+        set?.forEach((v) => mainTypeValues.add(v));
+      });
+      const mainTypes = ["brand", "model", "device", "manualType"];
+      console.log('DEBUG groupedTags.other:', groupedTags.other);
+      console.log('DEBUG mainTypeValues:', Array.from(mainTypeValues));
+      Object.keys(groupedTags.other)
+        .sort()
+        .forEach((key) => {
+          // Skip keys that are main types
+          if (mainTypes.includes(key)) return;
+          if (groupedTags.other[key] && groupedTags.other[key].size > 0) {
+            // For the 'other' key, filter out tags that are already in main type sets
+            let filtered: string[];
+            if (key === "other") {
+              filtered = Array.from(groupedTags.other[key]).filter((tag) => {
+                // If tag is key=value, parse it
+                const eqIdx = tag.indexOf('=');
+                if (eqIdx !== -1) {
+                  const tagKey = tag.slice(0, eqIdx);
+                  // Exclude if key is a main type
+                  if (mainTypes.includes(tagKey)) return false;
+                  return true;
+                }
+                // If not key=value, always show
+                return true;
+              });
+            } else {
+              filtered = Array.from(groupedTags.other[key]);
+            }
+            // console.log(`DEBUG section key: ${key}, filtered:`, filtered);
+            if (filtered.length > 0) {
+              sections.push({ key, tags: filtered.sort() });
+            }
+          }
+        });
+    }
+    return sections;
+  }, [groupedTags]);
+
   const drawer = (
     <Box sx={{ width: drawerWidth }} role="presentation">
       <Toolbar />
@@ -154,22 +249,47 @@ function App() {
         <ListItem>
           <ListItemText primary="Filter by tag" />
         </ListItem>
-        {allTags.length === 0 && (
+        {tagSections.length === 0 && (
           <ListItem>
             <ListItemText primary="No tags found" />
           </ListItem>
         )}
-         {allTags.map((tag) => (
-          <ListItemButton
-            key={tag}
-            selected={selectedTag === tag}
-            onClick={() => handleTagClick(tag)}
-          >
-            <ListItemText primary={tag} />
-          </ListItemButton>
-        ))}      </List>
+        {/* Accordion sections for tag filtering */}
+        {tagSections.map((section, idx) => (
+          <Accordion key={section.key} defaultExpanded={idx === 0}>
+            <AccordionSummary
+              expandIcon={<span>▼</span>}
+              aria-controls={`panel-${section.key}-content`}
+              id={`panel-${section.key}-header`}
+            >
+              <Typography sx={{ fontWeight: 600, textTransform: 'capitalize' }}>
+                {section.key}
+                {selectedTags[section.key] && selectedTags[section.key].size > 0 && (
+                  <span style={{ marginLeft: 8, color: '#888', fontWeight: 400 }}>
+                    ({selectedTags[section.key].size} selected)
+                  </span>
+                )}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              {section.tags.map((tag) => (
+                <ListItemButton
+                  key={tag}
+                  selected={selectedTags[section.key]?.has(tag)}
+                  onClick={() => handleTagClick(section.key, tag)}
+                  sx={{ pl: 4 }}
+                >
+                  <ListItemText primary={tag} />
+                </ListItemButton>
+              ))}
+            </AccordionDetails>
+          </Accordion>
+        ))}
+      </List>
     </Box>
   );
+
+
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -272,9 +392,15 @@ function App() {
               <>
                 <Alert severity="success" sx={{ mb: 2 }}>
                   Loaded {index.pdfs.length} manuals.
-                  {selectedTag && (
+                  {Object.keys(selectedTags).some((section) => selectedTags[section]?.size > 0) && (
                     <span style={{ marginLeft: 8 }}>
-                      (Filtered by tag: <b>{selectedTag}</b>)
+                      (Filtered by tag:
+                      {Object.entries(selectedTags)
+                        .filter(([_, set]) => set.size > 0)
+                        .map(([section, set]) =>
+                          ` ${section}: [${Array.from(set).join(', ')}]`
+                        ).join(';')}
+                      )
                     </span>
                   )}
                   {searchQuery && (
@@ -286,9 +412,25 @@ function App() {
                 <List>
                   {index.pdfs
                     .filter((pdf) => {
-                      // Tag filter
-                      if (selectedTag && ![...pdf.tags, ...pdf.extraTags].includes(selectedTag)) {
-                        return false;
+                      // Tag filter (multiple tags per section)
+                      for (const section of tagSections) {
+                        const selected = selectedTags[section.key];
+                        if (selected && selected.size > 0) {
+                          // For main types, check the field; for others, check tags/extraTags
+                          if (["brand","model","device","manualType"].includes(section.key)) {
+                            if (!selected.has((pdf as any)[section.key])) return false;
+                          } else {
+                            // For user-defined tags, check if any selected tag is present in tags/extraTags
+                            const allTags = [...pdf.tags, ...pdf.extraTags];
+                            let found = false;
+                            Array.from(selected).forEach((tag) => {
+                              if (allTags.includes(`${section.key}:${tag}`) || allTags.includes(tag)) {
+                                found = true;
+                              }
+                            });
+                            if (!found) return false;
+                          }
+                        }
                       }
                       // Search filter (case-insensitive, matches filename, title, brand, model, device, manualType, tags)
                       if (searchQuery) {
@@ -363,8 +505,23 @@ function App() {
                       </ListItem>
                     ))}
                   {index.pdfs.filter((pdf) => {
-                    if (selectedTag && ![...pdf.tags, ...pdf.extraTags].includes(selectedTag)) {
-                      return false;
+                    // Tag filter (multiple tags per section)
+                    for (const section of tagSections) {
+                      const selected = selectedTags[section.key];
+                      if (selected && selected.size > 0) {
+                        if (["brand","model","device","manualType"].includes(section.key)) {
+                          if (!selected.has((pdf as any)[section.key])) return false;
+                        } else {
+                          const allTags = [...pdf.tags, ...pdf.extraTags];
+                          let found = false;
+                          Array.from(selected).forEach((tag) => {
+                            if (allTags.includes(`${section.key}:${tag}`) || allTags.includes(tag)) {
+                              found = true;
+                            }
+                          });
+                          if (!found) return false;
+                        }
+                      }
                     }
                     if (searchQuery) {
                       const q = searchQuery.toLowerCase();
