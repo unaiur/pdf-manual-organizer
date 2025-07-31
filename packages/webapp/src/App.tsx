@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import './App.css';
 
 import AppBar from '@mui/material/AppBar';
+import Tooltip from '@mui/material/Tooltip';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -97,6 +99,9 @@ interface IndexData {
 
 function App() {
   const [index, setIndex] = useState<IndexData | null>(null);
+  const [showLoadedAlert, setShowLoadedAlert] = useState(true);
+  // Track expanded/collapsed tag state per manual
+  const [expandedTags, setExpandedTags] = useState<Record<string, boolean>>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,22 +118,25 @@ function App() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  useEffect(() => {
-    fetch('/index.json')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to load index.json');
-        return res.json();
-      })
-      .then((data) => {
-        setIndex(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+   useEffect(() => {
+     fetch('/index.json')
+       .then((res) => {
+         if (!res.ok) throw new Error('Failed to load index.json');
+         return res.json();
+       })
+       .then((data) => {
+         setIndex(data);
+         setLoading(false);
+       })
+       .catch((err) => {
+         setError(err.message);
+         setLoading(false);
+       });
+   }, []);
 
+   useEffect(() => {
+     setShowLoadedAlert(true);
+   }, [index]);
   const drawerWidth = 240;
 
   const handleDrawerToggle = () => {
@@ -258,10 +266,37 @@ function App() {
     <Box sx={{ width: drawerWidth }} role="presentation">
       <Toolbar />
       <List>
-        <ListItem>
-          <ListItemText primary="Filter by tag" />
-        </ListItem>
-        {tagSections.length === 0 && (
+         <ListItem disableGutters sx={{ mb: 1 }}>
+           <Box sx={{
+             width: '100%',
+             display: 'flex',
+             alignItems: 'center',
+             bgcolor: 'cyan.main',
+             color: 'cyan.contrastText',
+             fontWeight: 'bold',
+             fontSize: 18,
+             px: 2,
+             py: 1.2,
+             borderRadius: 2,
+             boxShadow: 1,
+             letterSpacing: 0.5,
+             justifyContent: 'space-between',
+           }}>
+             <span style={{ flex: 1, textAlign: 'center' }}>Filter by tag</span>
+             {Object.keys(selectedTags).some((section) => selectedTags[section]?.size > 0) && (
+               <Tooltip title="Clear all tag filters">
+                 <IconButton
+                   size="small"
+                   sx={{ color: 'cyan.contrastText', ml: 1 }}
+                   onClick={() => setSelectedTags({})}
+                   aria-label="Clear all tag filters"
+                 >
+                   <FilterAltOffIcon fontSize="small" />
+                 </IconButton>
+               </Tooltip>
+             )}
+           </Box>
+         </ListItem>        {tagSections.length === 0 && (
           <ListItem>
             <ListItemText primary="No tags found" />
           </ListItem>
@@ -274,15 +309,23 @@ function App() {
               aria-controls={`panel-${section.key}-content`}
               id={`panel-${section.key}-header`}
             >
-              <Typography sx={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                {section.key}
-                {selectedTags[section.key] && selectedTags[section.key].size > 0 && (
-                  <span style={{ marginLeft: 8, color: '#888', fontWeight: 400 }}>
-                    ({selectedTags[section.key].size} selected)
-                  </span>
-                )}
-              </Typography>
-            </AccordionSummary>
+               <Typography sx={{ fontWeight: 600 }}>
+                 {(() => {
+                   const keyMap: Record<string, string> = {
+                     manualType: 'Manual Type',
+                     brand: 'Brand',
+                     model: 'Model',
+                     device: 'Device',
+                     other: 'Other',
+                   };
+                   return keyMap[section.key] || section.key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, s => s.toUpperCase());
+                 })()}
+                 {selectedTags[section.key] && selectedTags[section.key].size > 0 && (
+                   <span style={{ marginLeft: 8, color: '#888', fontWeight: 400 }}>
+                     ({selectedTags[section.key].size} selected)
+                   </span>
+                 )}
+               </Typography>            </AccordionSummary>
             <AccordionDetails>
               {section.tags.map((tag) => (
                 <ListItemButton
@@ -402,25 +445,27 @@ function App() {
              {error && <Alert severity="error">{error}</Alert>}
              {index && (
                <>
-                 <Alert severity="success" sx={{ mb: 2 }}>
-                   Loaded {index.pdfs.length} manuals.
-                   {Object.keys(selectedTags).some((section) => selectedTags[section]?.size > 0) && (
-                     <span style={{ marginLeft: 8 }}>
-                       (Filtered by tag:
-                       {Object.entries(selectedTags)
-                         .filter(([_, set]) => set.size > 0)
-                         .map(([section, set]) =>
-                           ` ${section}: [${Array.from(set).join(', ')}]`
-                         ).join(';')}
-                       )
-                     </span>
-                   )}
-                   {searchQuery && (
-                     <span style={{ marginLeft: 8 }}>
-                       (Search: <b>{searchQuery}</b>)
-                     </span>
-                   )}
-                 </Alert>
+                  {showLoadedAlert && (
+                    <Alert severity="success" sx={{ mb: 2 }} onClose={() => setShowLoadedAlert(false)}>
+                      Loaded {index.pdfs.length} manuals.
+                      {Object.keys(selectedTags).some((section) => selectedTags[section]?.size > 0) && (
+                        <span style={{ marginLeft: 8 }}>
+                          (Filtered by tag:
+                          {Object.entries(selectedTags)
+                            .filter(([_, set]) => set.size > 0)
+                            .map(([section, set]) =>
+                              ` ${section}: [${Array.from(set).join(', ')}]`
+                            ).join(';')}
+                          )
+                        </span>
+                      )}
+                      {searchQuery && (
+                        <span style={{ marginLeft: 8 }}>
+                          (Search: <b>{searchQuery}</b>)
+                        </span>
+                      )}
+                    </Alert>
+                  )}
                  <List>
 <>
 {index.pdfs
@@ -463,26 +508,99 @@ function App() {
     return true;
   })
   .map((pdf) => (
-    <ListItem key={pdf.hash} alignItems="flex-start" sx={{ mb: 1, borderRadius: 2, boxShadow: 1, bgcolor: 'background.paper', py: { xs: 1.5, sm: 2 } }}>
-      <Box sx={{ flexGrow: 1 }}>
+    <ListItem key={pdf.hash} alignItems="flex-start" sx={{ mb: 1, borderRadius: 2, boxShadow: 1, bgcolor: 'background.paper', py: { xs: 1.5, sm: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
+      <Box sx={{ flexGrow: 1, width: '100%' }}>
         <Typography variant="subtitle1" fontWeight={600}>
           {pdf.brand} {pdf.model} — {pdf.device} ({pdf.manualType})
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {pdf.filename}
-        </Typography>
-        <Box sx={{ mt: 0.5, display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, overflowX: { xs: 'auto', sm: 'visible' } }}>
-          {[...pdf.tags, ...pdf.extraTags].map((tag) => (
-            <Box key={tag} sx={{ bgcolor: 'primary.light', color: 'primary.contrastText', px: 1, borderRadius: 1, fontSize: 12, whiteSpace: 'nowrap' }}>
-              {tag}
-            </Box>
-          ))}
-        </Box>
+<Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+           {pdf.filename}
+         </Typography>         {/* Tag list with expand/collapse and custom tags first */}
+         {(() => {
+           const allTags = [...pdf.extraTags, ...pdf.tags];
+            // Default: expanded on desktop, collapsed on mobile
+            const isExpanded =
+              expandedTags[pdf.hash] !== undefined
+                ? expandedTags[pdf.hash]
+                : !isMobile;           const shownTags = isExpanded ? allTags : allTags.slice(0, 2);
+           const hasMore = allTags.length > 2;
+           return (
+             <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, overflowX: 'visible' }}>
+               {shownTags.map((tag) => (
+<Box key={tag} sx={{ bgcolor: 'primary.light', color: 'primary.contrastText', px: 0.5, py: 0.2, borderRadius: 1, fontSize: 11, whiteSpace: 'nowrap', mb: 0.5, height: 20, display: 'flex', alignItems: 'center', minWidth: 20 }}>
+                    {tag}
+                  </Box>               ))}
+               {hasMore && !isExpanded && (
+<Box
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Show all tags"
+                    onClick={() => setExpandedTags((prev) => ({ ...prev, [pdf.hash]: true }))}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setExpandedTags((prev) => ({ ...prev, [pdf.hash]: true })); } }}
+                    sx={{
+                      bgcolor: 'primary.main',
+                      color: 'primary.contrastText',
+                      px: 0.5,
+                      py: 0.2,
+                      borderRadius: 1,
+                      fontSize: 11,
+                      whiteSpace: 'nowrap',
+                      mb: 0.5,
+                      border: 'none',
+                      cursor: 'pointer',
+                      height: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      minWidth: 0,
+                      outline: 'none',
+                      userSelect: 'none',
+                    }}
+                   >
+                    <Box component="span" sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1 }} aria-hidden="true">+</Box>
+                  </Box>               )}               {hasMore && isExpanded && (
+<Box
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Collapse tags"
+                    onClick={() => setExpandedTags((prev) => ({ ...prev, [pdf.hash]: false }))}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { setExpandedTags((prev) => ({ ...prev, [pdf.hash]: false })); } }}
+                    sx={{
+                      bgcolor: 'primary.main',
+                      color: 'primary.contrastText',
+                      px: 0.5,
+                      py: 0.2,
+                      borderRadius: 1,
+                      fontSize: 11,
+                      whiteSpace: 'nowrap',
+                      mb: 0.5,
+                      border: 'none',
+                      cursor: 'pointer',
+                      height: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      minWidth: 0,
+                      outline: 'none',
+                      userSelect: 'none',
+                    }}
+                   >
+                    <Box component="span" sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1 }} aria-hidden="true">-</Box>
+                  </Box>               )}             </Box>
+           );
+         })()}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
           Pages: {pdf.pages} | Last modified: {pdf.lastModified}
         </Typography>
       </Box>
-      <Box sx={{ ml: 2, alignSelf: 'center', display: 'flex', gap: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1,
+          ml: { xs: 0, sm: 2 },
+          mt: { xs: 1.5, sm: 0 },
+          width: { xs: '100%', sm: 'auto' },
+          justifyContent: { xs: 'center', sm: 'flex-end' },
+        }}
+      >
         <button
           onClick={() => setSelectedPdf(pdf)}
           style={{
