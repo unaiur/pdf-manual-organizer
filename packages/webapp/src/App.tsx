@@ -24,6 +24,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import QrCodeIcon from '@mui/icons-material/QrCode';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useTheme, alpha, styled } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import InputBase from '@mui/material/InputBase';
@@ -493,27 +494,26 @@ function App() {
             textDecoration: 'none',
           }}
         >
-          <Box
-            sx={{
-              bgcolor: 'primary.main',
-              color: 'primary.contrastText',
-              px: 2,
-              py: 1.2,
-              minHeight: 44,
-              borderRadius: 1,
-              fontWeight: 500,
-              fontSize: 14,
-              textAlign: 'center',
-              transition: 'background 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              '&:hover': { bgcolor: 'primary.dark' },
-            }}
-          >
-            View PDF
-          </Box>
-        </button>
+            <Box
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                px: 2,
+                py: 1.2,
+                minHeight: 44,
+                borderRadius: 1,
+                fontWeight: 500,
+                fontSize: 14,
+                textAlign: 'center',
+                transition: 'background 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                '&:hover': { bgcolor: 'primary.dark' },
+              }}
+            >
+              <PictureAsPdfIcon sx={{ mr: 1 }} /> View
+            </Box>        </button>
         <button
           onClick={() => { setQrPdf(pdf); setQrPage(1); }}
           style={{
