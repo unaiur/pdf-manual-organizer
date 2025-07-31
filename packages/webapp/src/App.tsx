@@ -11,6 +11,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
+import HeightIcon from '@mui/icons-material/Height';
 import ShareIcon from '@mui/icons-material/Share';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -86,8 +87,11 @@ function App() {
   const [selectedTags, setSelectedTags] = useState<Record<string, Set<string>>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [pdfScale, setPdfScale] = useState(1);
+  const [zoomMode, setZoomMode] = useState<'fit-width' | 'fit-height' | 'manual'>('fit-width');
   const [initialPage, setInitialPage] = useState<number | undefined>(undefined);
   const [hasProcessedUrlParams, setHasProcessedUrlParams] = useState(false);
+  const [fitWidthScale, setFitWidthScale] = useState(1);
+  const [fitHeightScale, setFitHeightScale] = useState(1);
   
   const [qrPdf, setQrPdf] = useState<PdfIndexEntry | null>(null);
   const [qrDownloadLoading, setQrDownloadLoading] = useState(false);
@@ -180,13 +184,47 @@ function App() {
 
   const handleSelectPdf = (pdf: PdfIndexEntry) => {
     setSelectedPdf(pdf);
-    setPdfScale(1); // Reset zoom when opening new PDF
-    setInitialPage(undefined); // Reset initial page for manually selected PDFs
+    setPdfScale(1);
+    // Auto-select zoom mode based on viewport aspect ratio
+    const viewportRatio = window.innerWidth / window.innerHeight;
+    // We'll let the PdfViewer component handle the actual scale calculation
+    // based on real PDF dimensions, but we can still auto-select the mode
+    const autoMode = viewportRatio > 1.3 ? 'fit-width' : 'fit-height';
+    setZoomMode(autoMode);
+    setInitialPage(undefined);
   };
 
-  const handleZoomIn = () => setPdfScale(prev => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setPdfScale(prev => Math.max(prev - 0.25, 0.5));
-  const handleFitToWidth = () => setPdfScale(1);
+  const handleFitScalesChange = (newFitWidthScale: number, newFitHeightScale: number) => {
+    setFitWidthScale(newFitWidthScale);
+    setFitHeightScale(newFitHeightScale);
+    
+    // Auto-set the scale when PDF loads based on the current zoom mode
+    if (zoomMode === 'fit-width') {
+      setPdfScale(newFitWidthScale);
+    } else if (zoomMode === 'fit-height') {
+      setPdfScale(newFitHeightScale);
+    }
+  };
+
+  const handleZoomIn = () => {
+    setZoomMode('manual');
+    setPdfScale(prev => Math.min(prev * 1.2, 10));
+  };
+
+  const handleZoomOut = () => {
+    setZoomMode('manual');
+    setPdfScale(prev => Math.max(prev / 1.2, 0.1));
+  };
+
+  const handleFitToWidth = () => {
+    setZoomMode('fit-width');
+    setPdfScale(fitWidthScale);
+  };
+
+  const handleFitToHeight = () => {
+    setZoomMode('fit-height');
+    setPdfScale(fitHeightScale);
+  };
 
   const handleShowQR = (pdf: PdfIndexEntry) => {
     setQrPdf(pdf);
@@ -247,7 +285,7 @@ function App() {
                   color="inherit"
                   size="small"
                   onClick={handleZoomOut}
-                  disabled={pdfScale <= 0.5}
+                  disabled={pdfScale <= 0.1}
                   aria-label="Zoom out"
                 >
                   <ZoomOutIcon />
@@ -259,7 +297,7 @@ function App() {
                   color="inherit"
                   size="small"
                   onClick={handleZoomIn}
-                  disabled={pdfScale >= 3}
+                  disabled={pdfScale >= 10}
                   aria-label="Zoom in"
                 >
                   <ZoomInIcon />
@@ -269,8 +307,24 @@ function App() {
                   size="small"
                   onClick={handleFitToWidth}
                   aria-label="Fit to width"
+                  sx={{ 
+                    bgcolor: zoomMode === 'fit-width' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+                  }}
                 >
                   <FitScreenIcon />
+                </IconButton>
+                <IconButton
+                  color="inherit"
+                  size="small"
+                  onClick={handleFitToHeight}
+                  aria-label="Fit to height"
+                  sx={{ 
+                    bgcolor: zoomMode === 'fit-height' ? 'rgba(255,255,255,0.2)' : 'transparent',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+                  }}
+                >
+                  <HeightIcon />
                 </IconButton>
                 {!isIPhone && (
                   <IconButton
@@ -319,7 +373,7 @@ function App() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: selectedPdf ? 0 : 3, // Remove all padding when viewing PDF
           width: !selectedPdf ? { sm: `calc(100% - ${drawerWidth}px)` } : '100%',
           mt: { xs: 7, sm: 8 }, // Reduce top margin on mobile (iPhone)
         }}
@@ -327,8 +381,9 @@ function App() {
         {selectedPdf ? (
           <PdfViewer 
             pdf={selectedPdf} 
-            scale={pdfScale} 
+            scale={pdfScale}
             initialPage={initialPage}
+            onFitScalesChange={handleFitScalesChange}
           />
         ) : (
           <>

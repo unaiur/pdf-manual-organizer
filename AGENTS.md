@@ -33,6 +33,33 @@ The PDF viewer uses react-window virtualization to handle large documents effici
 - Maintains smooth scrolling performance
 - Page hiding feature works seamlessly with virtualization by filtering the visible pages array
 
+### PDF Viewer Zoom System
+The PDF viewer implements an accurate zoom system using actual PDF dimensions:
+
+**Core Architecture:**
+- Gets real PDF dimensions using `pdf.getPage(1)` and `page.getViewport({ scale: 1 })`
+- Calculates exact scale factors based on available container space vs actual PDF dimensions
+- Uses `viewport.height * scale` for precise react-window itemSize calculation
+
+**Three Zoom Modes:**
+- **Fit Width**: `scale = availableWidth / viewport.width` - fills horizontal space, variable page height
+- **Fit Height**: `scale = availableHeight / viewport.height` - fills vertical space, fixed page height
+- **Manual**: User-controlled scale with 1.2x increments (zoom in/out buttons)
+
+**Key Features:**
+- Auto-selects zoom mode when opening PDFs based on viewport aspect ratio
+- Zoom controls integrated into AppBar with visual indication of active mode
+- Eliminates spacing issues by using actual PDF viewport dimensions instead of theoretical constants
+- react-window itemSize = `(viewport.height * currentScale) + padding` for exact sizing
+- Responsive design that works across mobile and desktop
+
+**Implementation Details:**
+- PDF dimensions detected asynchronously on document load
+- Scale factors recalculated when container size changes
+- Manual zoom range: 0.1x to 5.0x with 1.2x increment steps
+- Minimal padding: 8px mobile, 16px desktop
+- No hardcoded PDF dimensions - all calculations based on actual file properties
+
 ---
 
 If you add linting or formatting configs, update this file accordingly.

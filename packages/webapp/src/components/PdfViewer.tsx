@@ -18,6 +18,7 @@ interface PdfViewerProps {
   pdf: PdfIndexEntry;
   scale: number;
   initialPage?: number;
+  onFitScalesChange?: (fitWidthScale: number, fitHeightScale: number) => void;
 }
 
 interface PageItemProps {
@@ -32,7 +33,7 @@ interface PageItemProps {
 
 function PageItem({ index, style, data }: PageItemProps) {
   const { visiblePages, pageScale, isMobile } = data;
-  const pageNumber = visiblePages[index]; // Get the actual page number from visible pages array
+  const pageNumber = visiblePages[index];
 
   return (
     <div style={style}>
@@ -40,10 +41,10 @@ function PageItem({ index, style, data }: PageItemProps) {
         display: 'flex', 
         justifyContent: 'center', 
         alignItems: 'center',
-        p: 1,
+        p: isMobile ? 0.25 : 0.5,
         height: '100%'
       }}>
-        <Box sx={{ boxShadow: 2, bgcolor: 'white' }}>
+        <Box sx={{ boxShadow: 0, bgcolor: 'white' }}>
           <Page
             pageNumber={pageNumber}
             scale={pageScale}
@@ -54,8 +55,8 @@ function PageItem({ index, style, data }: PageItemProps) {
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center', 
-                height: 800 * pageScale,
-                width: 600 * pageScale
+                minHeight: 200,
+                minWidth: 200
               }}>
                 <CircularProgress />
               </Box>
@@ -68,16 +69,16 @@ function PageItem({ index, style, data }: PageItemProps) {
   );
 }
 
-export default function PdfViewer({ pdf, scale, initialPage }: PdfViewerProps) {
+export default function PdfViewer({ pdf, scale, initialPage, onFitScalesChange }: PdfViewerProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [numPages, setNumPages] = useState<number>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pageHeight, setPageHeight] = useState(800);
-  const [pageWidth, setPageWidth] = useState(600);
   const [containerHeight, setContainerHeight] = useState(600);
+  const [containerWidth, setContainerWidth] = useState(800);
+  const [pdfViewport, setPdfViewport] = useState<{width: number, height: number} | null>(null);
   
   const listRef = useRef<List>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,6 +95,45 @@ export default function PdfViewer({ pdf, scale, initialPage }: PdfViewerProps) {
     standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
   }), []);
 
+  // Get actual PDF dimensions from first page
+  useEffect(() => {
+    if (!numPages || pdfViewport) return;
+
+    const getPdfDimensions = async () => {
+      try {
+        const pdfDoc = await pdfjs.getDocument(`/pdf/${pdf.path}`).promise;
+        const page = await pdfDoc.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        
+        setPdfViewport({
+          width: viewport.width,
+          height: viewport.height
+        });
+      } catch (err) {
+        console.error('Failed to get PDF dimensions:', err);
+      }
+    };
+
+    getPdfDimensions();
+  }, [numPages, pdf.path, pdfViewport]);
+
+  // Calculate scale factors when container or PDF dimensions change
+  useEffect(() => {
+    if (!pdfViewport || containerWidth === 0 || containerHeight === 0) return;
+
+    const padding = isMobile ? 8 : 16;
+    const availableWidth = containerWidth - padding;
+    const availableHeight = containerHeight - padding;
+
+    const newFitWidthScale = availableWidth / pdfViewport.width;
+    const newFitHeightScale = availableHeight / pdfViewport.height;
+
+    // Notify parent component of the calculated fit scales
+    if (onFitScalesChange) {
+      onFitScalesChange(newFitWidthScale, newFitHeightScale);
+    }
+  }, [pdfViewport, containerWidth, containerHeight, isMobile, onFitScalesChange]);
+
   function onDocumentLoadSuccess({ numPages }: { numPages: number }): void {
     setNumPages(numPages);
     setLoading(false);
@@ -105,45 +145,76 @@ export default function PdfViewer({ pdf, scale, initialPage }: PdfViewerProps) {
     setLoading(false);
   }
 
-  // Handle window resize
+  // Calculate current scale and item height
+  const { pageScale, itemHeight } = useMemo(() => {
+    if (!pdfViewport) {
+      return { pageScale: 1, itemHeight: 800 };
+    }
+
+    const padding = isMobile ? 8 : 16;
+    const currentScale = scale;
+
+    // Calculate exact item height based on actual PDF viewport height and current scale
+    const calculatedItemHeight = (pdfViewport.height * currentScale) + padding;
+
+    return {
+      pageScale: currentScale,
+      itemHeight: calculatedItemHeight
+    };
+  }, [pdfViewport, scale, isMobile]);
+
+  // Handle container resize
   useEffect(() => {
-    const updateContainerHeight = () => {
+    if (visiblePages.length === 0 || loading) {
+      return;
+    }
+
+    const updateContainerDimensions = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        setContainerHeight(window.innerHeight - rect.top - 16); // 16px for padding
+        const availableHeight = window.innerHeight - rect.top - 16;
+        const availableWidth = rect.width;
+        
+        const minHeight = 400;
+        const finalHeight = Math.max(availableHeight, minHeight);
+        
+        setContainerHeight(finalHeight);
+        setContainerWidth(availableWidth);
       }
     };
 
-    updateContainerHeight();
-    window.addEventListener('resize', updateContainerHeight);
-    return () => window.removeEventListener('resize', updateContainerHeight);
-  }, []);
+    const resizeObserver = new ResizeObserver(updateContainerDimensions);
+    let observerSetup = false;
+
+    const timeoutId = setTimeout(() => {
+      updateContainerDimensions();
+      if (containerRef.current && !observerSetup) {
+        resizeObserver.observe(containerRef.current);
+        observerSetup = true;
+      }
+    }, 100);
+    
+    const handleResize = updateContainerDimensions;
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [visiblePages.length, loading]);
 
   // Handle initial page scrolling
   useEffect(() => {
     if (initialPage && initialPage > 0 && visiblePages.length > 0 && listRef.current) {
-      // Find the index of the initial page in the visible pages array
       const visibleIndex = visiblePages.findIndex(pageNum => pageNum === initialPage);
       if (visibleIndex !== -1) {
-        // Small delay to ensure the list is rendered
         setTimeout(() => {
           listRef.current?.scrollToItem(visibleIndex, 'start');
         }, 100);
       }
     }
   }, [initialPage, visiblePages]);
-
-  // Update page dimensions when scale changes
-  useEffect(() => {
-    const baseHeight = 800; // Approximate PDF page height
-    const baseWidth = 600;  // Approximate PDF page width
-    const pageScale = isMobile ? Math.min(scale, 1.5) : scale;
-    
-    setPageHeight(baseHeight * pageScale + 32); // Add padding
-    setPageWidth(baseWidth * pageScale);
-  }, [scale, isMobile]);
-
-  const pageScale = isMobile ? Math.min(scale, 1.5) : scale;
 
   const itemData = useMemo(() => ({
     visiblePages,
@@ -173,7 +244,7 @@ export default function PdfViewer({ pdf, scale, initialPage }: PdfViewerProps) {
         loading=""
         error=""
       >
-        {visiblePages.length > 0 && !loading && (
+        {visiblePages.length > 0 && !loading && pdfViewport && (
           <Box 
             ref={containerRef}
             sx={{ 
@@ -181,17 +252,19 @@ export default function PdfViewer({ pdf, scale, initialPage }: PdfViewerProps) {
               bgcolor: '#f5f5f5',
               display: 'flex',
               justifyContent: 'center',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              minHeight: 400,
+              height: '100%'
             }}
           >
             <List
               ref={listRef}
               height={containerHeight}
-              width={Math.min(pageWidth + 64, window.innerWidth)} // Add padding and constrain to window
-              itemCount={visiblePages.length} // Use visible pages count instead of total pages
-              itemSize={pageHeight}
+              width={containerWidth}
+              itemCount={visiblePages.length}
+              itemSize={itemHeight}
               itemData={itemData}
-              overscanCount={1} // Render 1 page above/below viewport for smooth scrolling while keeping memory usage low
+              overscanCount={1}
             >
               {PageItem}
             </List>
