@@ -12,6 +12,7 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import ShareIcon from '@mui/icons-material/Share';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
@@ -90,6 +91,7 @@ function App() {
   
   const [qrPdf, setQrPdf] = useState<PdfIndexEntry | null>(null);
   const [qrDownloadLoading, setQrDownloadLoading] = useState(false);
+  const [qrCopyLoading, setQrCopyLoading] = useState(false);
   const [qrPage, setQrPage] = useState(1);
   
   const theme = useTheme();
@@ -194,6 +196,7 @@ function App() {
   const handleCloseQR = () => {
     setQrPdf(null);
     setQrPage(1);
+    setQrCopyLoading(false);
   };
 
   const qrUrl = qrPdf ? `${window.location.origin}?pdf=${encodeURIComponent(qrPdf.path)}&page=${qrPage}` : '';
@@ -413,6 +416,28 @@ function App() {
           <Button
             onClick={async () => {
               if (!qrPdf) return;
+              setQrCopyLoading(true);
+              try {
+                await navigator.clipboard.writeText(qrUrl);
+                // Brief success indication (could be enhanced with a toast/snackbar)
+                setTimeout(() => setQrCopyLoading(false), 500);
+              } catch (err) {
+                alert('Failed to copy URL to clipboard.');
+                setQrCopyLoading(false);
+              }
+            }}
+            color="primary"
+            variant="outlined"
+            size="small"
+            disabled={qrCopyLoading}
+            startIcon={qrCopyLoading ? <CircularProgress size={18} color="inherit" /> : <ContentCopyIcon />}
+            aria-label="Copy URL to clipboard"
+          >
+            {qrCopyLoading ? 'Copied!' : 'Copy'}
+          </Button>
+          <Button
+            onClick={async () => {
+              if (!qrPdf) return;
               setQrDownloadLoading(true);
               const qrNode = document.getElementById('qr-download-container');
               if (!qrNode) { setQrDownloadLoading(false); return; }
@@ -444,13 +469,14 @@ function App() {
             }}
             color="secondary"
             variant="contained"
+            size="small"
             disabled={qrDownloadLoading}
             startIcon={qrDownloadLoading ? <CircularProgress size={18} color="inherit" /> : (hasShareAPI ? <ShareIcon /> : null)}
             aria-label={hasShareAPI ? "Share QR code" : "Download QR code as PNG"}
           >
-            {qrDownloadLoading ? (hasShareAPI ? 'Sharing...' : 'Downloading...') : (hasShareAPI ? 'Share QR' : 'Download QR')}
+            {qrDownloadLoading ? (hasShareAPI ? 'Sharing...' : 'Downloading...') : (hasShareAPI ? 'Share' : 'Download')}
           </Button>
-          <Button onClick={handleCloseQR} color="primary" variant="outlined" aria-label="Close QR code dialog">
+          <Button onClick={handleCloseQR} color="primary" variant="outlined" size="small" aria-label="Close QR code dialog">
             Close
           </Button>
         </DialogActions>
