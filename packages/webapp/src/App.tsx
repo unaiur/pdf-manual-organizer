@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import './App.css';
 
 import AppBar from '@mui/material/AppBar';
@@ -19,6 +19,49 @@ import { useTheme, alpha, styled } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import InputBase from '@mui/material/InputBase';
 import SearchIcon from '@mui/icons-material/Search';
+
+// Styled components must come after all imports
+const Search = styled('div')(({ theme }) => ({
+  position: 'relative',
+  borderRadius: theme.shape.borderRadius,
+  backgroundColor: alpha(theme.palette.common.white, 0.15),
+  '&:hover': {
+    backgroundColor: alpha(theme.palette.common.white, 0.25),
+  },
+  marginLeft: 0,
+  width: '100%',
+  [theme.breakpoints.up('sm')]: {
+    marginLeft: theme.spacing(2),
+    width: 'auto',
+  },
+}));
+
+const SearchIconWrapper = styled('div')(({ theme }) => ({
+  padding: theme.spacing(0, 2),
+  height: '100%',
+  position: 'absolute',
+  pointerEvents: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}));
+
+const StyledInputBase = styled(InputBase)(({ theme }) => ({
+  color: 'inherit',
+  '& .MuiInputBase-input': {
+    padding: theme.spacing(1, 1, 1, 0),
+    // vertical padding + font size from searchIcon
+    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
+    transition: theme.transitions.create('width'),
+    width: '100%',
+    [theme.breakpoints.up('sm')]: {
+      width: '20ch',
+      '&:focus': {
+        width: '28ch',
+      },
+    },
+  },
+}));
 
 interface PdfIndexEntry {
   path: string;
@@ -42,11 +85,13 @@ interface IndexData {
 
 function App() {
   const [index, setIndex] = useState<IndexData | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // Track the currently opened PDF (null = none open)
   const [selectedPdf, setSelectedPdf] = useState<PdfIndexEntry | null>(null);
+  const prevSelectedPdf = useRef<PdfIndexEntry | null>(null);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -93,49 +138,15 @@ function App() {
     if (isMobile) handleDrawerToggle();
   };
 
-  // Styled search bar
-  const Search = styled('div')(({ theme }) => ({
-    position: 'relative',
-    borderRadius: theme.shape.borderRadius,
-    backgroundColor: alpha(theme.palette.common.white, 0.15),
-    '&:hover': {
-      backgroundColor: alpha(theme.palette.common.white, 0.25),
-    },
-    marginLeft: 0,
-    width: '100%',
-    [theme.breakpoints.up('sm')]: {
-      marginLeft: theme.spacing(2),
-      width: 'auto',
-    },
-  }));
+  // Focus search input when returning from PDF view
+  useEffect(() => {
+    if (prevSelectedPdf.current && !selectedPdf && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+    prevSelectedPdf.current = selectedPdf;
+  }, [selectedPdf]);
 
-  const SearchIconWrapper = styled('div')(({ theme }) => ({
-    padding: theme.spacing(0, 2),
-    height: '100%',
-    position: 'absolute',
-    pointerEvents: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }));
-
-  const StyledInputBase = styled(InputBase)(({ theme }) => ({
-    color: 'inherit',
-    '& .MuiInputBase-input': {
-      padding: theme.spacing(1, 1, 1, 0),
-      // vertical padding + font size from searchIcon
-      paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-      transition: theme.transitions.create('width'),
-      width: '100%',
-      [theme.breakpoints.up('sm')]: {
-        width: '20ch',
-        '&:focus': {
-          width: '28ch',
-        },
-      },
-    },
-  }));
-
+  
   const drawer = (
     <Box sx={{ width: drawerWidth }} role="presentation">
       <Toolbar />
@@ -179,31 +190,32 @@ function App() {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Manuals Library
           </Typography>
-          {selectedPdf ? (
-            <IconButton
-              color="inherit"
-              aria-label="close pdf"
-              edge="end"
-              onClick={() => setSelectedPdf(null)}
-              sx={{ ml: 2 }}
-            >
-              <CloseIcon />
-            </IconButton>
-          ) : (
-            <Search>
-              <SearchIconWrapper>
-                <SearchIcon />
-              </SearchIconWrapper>
-              <StyledInputBase
-                placeholder="Search manuals…"
-                inputProps={{ 'aria-label': 'search' }}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                sx={{ minWidth: isMobile ? 120 : 200 }}
-              />
-            </Search>
-          )}
-        </Toolbar>
+          <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'flex-end' }}>
+            {selectedPdf ? (
+              <IconButton
+                color="inherit"
+                aria-label="close pdf"
+                edge="end"
+                onClick={() => setSelectedPdf(null)}
+                sx={{ ml: 2 }}
+              >
+                <CloseIcon />
+              </IconButton>
+            ) : (
+              <Search>
+                <SearchIconWrapper>
+                  <SearchIcon />
+                </SearchIconWrapper>
+                 <StyledInputBase
+                   placeholder="Search manuals…"
+                   inputProps={{ 'aria-label': 'search' }}
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   sx={{ minWidth: isMobile ? 120 : 200 }}
+                   inputRef={searchInputRef}
+                 />              </Search>
+            )}
+          </Box>        </Toolbar>
       </AppBar>
       {/* Hide Drawer when PDF is open */}
       {!selectedPdf && (
