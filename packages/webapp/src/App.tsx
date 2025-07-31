@@ -78,6 +78,7 @@ function App() {
   const groupedTags = useGroupedTags(index);
   const tagSections = useTagSections(groupedTags);
   
+
   const [showLoadedAlert, setShowLoadedAlert] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedPdf, setSelectedPdf] = useState<PdfIndexEntry | null>(null);
@@ -85,6 +86,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [pdfScale, setPdfScale] = useState(1);
   const [initialPage, setInitialPage] = useState<number | undefined>(undefined);
+  const [hasProcessedUrlParams, setHasProcessedUrlParams] = useState(false);
   
   const [qrPdf, setQrPdf] = useState<PdfIndexEntry | null>(null);
   const [qrDownloadLoading, setQrDownloadLoading] = useState(false);
@@ -131,10 +133,18 @@ function App() {
         }
       }
     }
+    
+    // Mark that we have processed URL parameters
+    setHasProcessedUrlParams(true);
   }, [index]);
 
   // Update URL when PDF is selected/deselected
   useEffect(() => {
+    // Don't clear URL parameters until we've had a chance to process them
+    if (!hasProcessedUrlParams && !selectedPdf) {
+      return;
+    }
+    
     const url = new URL(window.location.href);
     if (selectedPdf) {
       url.searchParams.set('pdf', selectedPdf.path);
@@ -143,7 +153,7 @@ function App() {
       url.searchParams.delete('page');
     }
     window.history.replaceState({}, '', url.toString());
-  }, [selectedPdf]);
+  }, [selectedPdf, hasProcessedUrlParams]);
 
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
