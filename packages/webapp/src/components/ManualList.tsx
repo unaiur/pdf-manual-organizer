@@ -29,6 +29,9 @@ export default function ManualList({
 }: ManualListProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  // Detect iPhone for reduced button height
+  const isIPhone = /iPhone/i.test(navigator.userAgent);
   const [expandedTags, setExpandedTags] = useState<Record<string, boolean>>({});
 
   const filteredPdfs = pdfs.filter((pdf) => {
@@ -229,8 +232,8 @@ export default function ManualList({
                   bgcolor: 'primary.main',
                   color: 'primary.contrastText',
                   px: 2,
-                  py: 1.2,
-                  minHeight: 44,
+                  py: isIPhone ? 0.9 : 1.2,
+                  minHeight: isIPhone ? 32 : 44,
                   borderRadius: 1,
                   fontWeight: 500,
                   fontSize: 14,
@@ -263,8 +266,8 @@ export default function ManualList({
                   bgcolor: 'secondary.main',
                   color: 'secondary.contrastText',
                   px: 2,
-                  py: 1.2,
-                  minHeight: 44,
+                  py: isIPhone ? 0.9 : 1.2,
+                  minHeight: isIPhone ? 32 : 44,
                   borderRadius: 1,
                   fontWeight: 500,
                   fontSize: 14,

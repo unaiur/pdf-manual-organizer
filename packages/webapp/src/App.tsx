@@ -10,6 +10,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
+import ShareIcon from '@mui/icons-material/Share';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
@@ -82,6 +83,7 @@ function App() {
   const [selectedTags, setSelectedTags] = useState<Record<string, Set<string>>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [pdfScale, setPdfScale] = useState(1);
+  const [initialPage, setInitialPage] = useState<number | undefined>(undefined);
   
   const [qrPdf, setQrPdf] = useState<PdfIndexEntry | null>(null);
   const [qrDownloadLoading, setQrDownloadLoading] = useState(false);
@@ -92,6 +94,9 @@ function App() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const prevSelectedPdf = useRef<PdfIndexEntry | null>(null);
 
+  // Detect Web Share API availability
+  const hasShareAPI = navigator.share !== undefined;
+
   useEffect(() => {
     setShowLoadedAlert(true);
   }, [index]);
@@ -101,6 +106,41 @@ function App() {
       searchInputRef.current.focus();
     }
     prevSelectedPdf.current = selectedPdf;
+  }, [selectedPdf]);
+
+  // Handle URL parameters to open PDF directly
+  useEffect(() => {
+    if (!index) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const pdfPath = urlParams.get('pdf');
+    const pageParam = urlParams.get('page');
+    
+    if (pdfPath) {
+      const pdf = index.pdfs.find(p => p.path === pdfPath);
+      if (pdf) {
+        setSelectedPdf(pdf);
+        // Set initial page if provided
+        if (pageParam) {
+          const pageNum = parseInt(pageParam, 10);
+          if (pageNum > 0) {
+            setInitialPage(pageNum);
+          }
+        }
+      }
+    }
+  }, [index]);
+
+  // Update URL when PDF is selected/deselected
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (selectedPdf) {
+      url.searchParams.set('pdf', selectedPdf.path);
+    } else {
+      url.searchParams.delete('pdf');
+      url.searchParams.delete('page');
+    }
+    window.history.replaceState({}, '', url.toString());
   }, [selectedPdf]);
 
   const handleDrawerToggle = () => {
@@ -127,6 +167,7 @@ function App() {
   const handleSelectPdf = (pdf: PdfIndexEntry) => {
     setSelectedPdf(pdf);
     setPdfScale(1); // Reset zoom when opening new PDF
+    setInitialPage(undefined); // Reset initial page for manually selected PDFs
   };
 
   const handleZoomIn = () => setPdfScale(prev => Math.min(prev + 0.25, 3));
@@ -143,7 +184,7 @@ function App() {
     setQrPage(1);
   };
 
-  const qrUrl = qrPdf ? `${window.location.origin}/pdf/${qrPdf.path}#page=${qrPage}` : '';
+  const qrUrl = qrPdf ? `${window.location.origin}?pdf=${encodeURIComponent(qrPdf.path)}&page=${qrPage}` : '';
   const drawerWidth = 240;
 
   return (
@@ -247,7 +288,11 @@ function App() {
         }}
       >
         {selectedPdf ? (
-          <PdfViewer pdf={selectedPdf} scale={pdfScale} />
+          <PdfViewer 
+            pdf={selectedPdf} 
+            scale={pdfScale} 
+            initialPage={initialPage}
+          />
         ) : (
           <>
             {loading && <CircularProgress />}
@@ -318,7 +363,15 @@ function App() {
               </Box>
             </>
           )}
-          <Typography variant="body2" sx={{ mt: 1, wordBreak: 'break-all', textAlign: 'center' }}>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              mt: 1, 
+              wordBreak: 'break-all', 
+              textAlign: 'center',
+              display: { xs: 'none', sm: 'block' }
+            }}
+          >
             {qrUrl}
           </Typography>
         </DialogContent>
@@ -331,22 +384,37 @@ function App() {
               if (!qrNode) { setQrDownloadLoading(false); return; }
               try {
                 const dataUrl = await toPng(qrNode, { backgroundColor: 'white' });
-                const link = document.createElement('a');
-                link.href = dataUrl;
-                link.download = `${qrPdf.filename.replace(/\.[^/.]+$/, '')}-qr.png`;
-                link.click();
+                
+                if (hasShareAPI) {
+                  // Use Web Share API if available
+                  const response = await fetch(dataUrl);
+                  const blob = await response.blob();
+                  const file = new File([blob], `${qrPdf.filename.replace(/\.[^/.]+$/, '')}-qr.png`, { type: 'image/png' });
+                  
+                  await navigator.share({
+                    title: `QR Code - ${qrPdf.filename}`,
+                    text: `QR code for ${qrPdf.filename} - Page ${qrPage}`,
+                    files: [file]
+                  });
+                } else {
+                  // Fallback to download
+                  const link = document.createElement('a');
+                  link.href = dataUrl;
+                  link.download = `${qrPdf.filename.replace(/\.[^/.]+$/, '')}-qr.png`;
+                  link.click();
+                }
               } catch (err) {
-                alert('Failed to generate QR code image.');
+                alert(hasShareAPI ? 'Failed to share QR code.' : 'Failed to generate QR code image.');
               }
               setQrDownloadLoading(false);
             }}
             color="secondary"
             variant="contained"
             disabled={qrDownloadLoading}
-            startIcon={qrDownloadLoading ? <CircularProgress size={18} color="inherit" /> : null}
-            aria-label="Download QR code as PNG"
+            startIcon={qrDownloadLoading ? <CircularProgress size={18} color="inherit" /> : (hasShareAPI ? <ShareIcon /> : null)}
+            aria-label={hasShareAPI ? "Share QR code" : "Download QR code as PNG"}
           >
-            {qrDownloadLoading ? 'Downloading...' : 'Download QR'}
+            {qrDownloadLoading ? (hasShareAPI ? 'Sharing...' : 'Downloading...') : (hasShareAPI ? 'Share QR' : 'Download QR')}
           </Button>
           <Button onClick={handleCloseQR} color="primary" variant="outlined" aria-label="Close QR code dialog">
             Close
