@@ -5,6 +5,7 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
+import CloseIcon from '@mui/icons-material/Close';
 import Typography from '@mui/material/Typography';
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -44,6 +45,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Track the currently opened PDF (null = none open)
+  const [selectedPdf, setSelectedPdf] = useState<PdfIndexEntry | null>(null);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -159,9 +162,10 @@ function App() {
 
   return (
     <Box sx={{ display: 'flex' }}>
+      {/* AppBar always shown, but will add close button in next step */}
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
-          {isMobile && (
+          {isMobile && !selectedPdf && (
             <IconButton
               color="inherit"
               aria-label="open drawer"
@@ -175,163 +179,198 @@ function App() {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Manuals Library
           </Typography>
-          <Search>
-            <SearchIconWrapper>
-              <SearchIcon />
-            </SearchIconWrapper>
-            <StyledInputBase
-              placeholder="Search manuals…"
-              inputProps={{ 'aria-label': 'search' }}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ minWidth: isMobile ? 120 : 200 }}
-            />
-          </Search>
+          {selectedPdf ? (
+            <IconButton
+              color="inherit"
+              aria-label="close pdf"
+              edge="end"
+              onClick={() => setSelectedPdf(null)}
+              sx={{ ml: 2 }}
+            >
+              <CloseIcon />
+            </IconButton>
+          ) : (
+            <Search>
+              <SearchIconWrapper>
+                <SearchIcon />
+              </SearchIconWrapper>
+              <StyledInputBase
+                placeholder="Search manuals…"
+                inputProps={{ 'aria-label': 'search' }}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ minWidth: isMobile ? 120 : 200 }}
+              />
+            </Search>
+          )}
         </Toolbar>
       </AppBar>
-      <nav>
-        <Drawer
-          variant={isMobile ? 'temporary' : 'permanent'}
-          open={isMobile ? drawerOpen : true}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            width: drawerWidth,
-            flexShrink: 0,
-            '& .MuiDrawer-paper': {
+      {/* Hide Drawer when PDF is open */}
+      {!selectedPdf && (
+        <nav>
+          <Drawer
+            variant={isMobile ? 'temporary' : 'permanent'}
+            open={isMobile ? drawerOpen : true}
+            onClose={handleDrawerToggle}
+            ModalProps={{ keepMounted: true }}
+            sx={{
               width: drawerWidth,
-              boxSizing: 'border-box',
-            },
-            display: { xs: 'block', sm: 'block' },
-          }}
-        >
-          {drawer}
-        </Drawer>
-      </nav>
+              flexShrink: 0,
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box',
+              },
+              display: { xs: 'block', sm: 'block' },
+            }}
+          >
+            {drawer}
+          </Drawer>
+        </nav>
+      )}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          width: !selectedPdf ? { sm: `calc(100% - ${drawerWidth}px)` } : '100%',
           mt: 8,
         }}
       >
-        {loading && <CircularProgress />}
-        {error && <Alert severity="error">{error}</Alert>}
-        {index && (
+        {selectedPdf ? (
+          // PDF viewer mode
+          <Box sx={{ width: '100%', height: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>{selectedPdf.title || selectedPdf.filename}</Typography>
+            <iframe
+              src={`/pdf/${selectedPdf.path}`}
+              title={selectedPdf.title || selectedPdf.filename}
+              style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
+            />
+          </Box>
+        ) : (
+          // Main page mode
           <>
-            <Alert severity="success" sx={{ mb: 2 }}>
-              Loaded {index.pdfs.length} manuals.
-              {selectedTag && (
-                <span style={{ marginLeft: 8 }}>
-                  (Filtered by tag: <b>{selectedTag}</b>)
-                </span>
-              )}
-              {searchQuery && (
-                <span style={{ marginLeft: 8 }}>
-                  (Search: <b>{searchQuery}</b>)
-                </span>
-              )}
-            </Alert>
-            <List>
-              {index.pdfs
-                .filter((pdf) => {
-                  // Tag filter
-                  if (selectedTag && ![...pdf.tags, ...pdf.extraTags].includes(selectedTag)) {
-                    return false;
-                  }
-                  // Search filter (case-insensitive, matches filename, title, brand, model, device, manualType, tags)
-                  if (searchQuery) {
-                    const q = searchQuery.toLowerCase();
-                    const fields = [
-                      pdf.filename,
-                      pdf.title,
-                      pdf.brand,
-                      pdf.model,
-                      pdf.device,
-                      pdf.manualType,
-                      ...pdf.tags,
-                      ...pdf.extraTags,
-                    ].join(' ').toLowerCase();
-                    if (!fields.includes(q)) return false;
-                  }
-                  return true;
-                })
-                .map((pdf) => (
-                  <ListItem key={pdf.hash} alignItems="flex-start" sx={{ mb: 1, borderRadius: 2, boxShadow: 1, bgcolor: 'background.paper', py: { xs: 1.5, sm: 2 } }}>
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography variant="subtitle1" fontWeight={600}>{pdf.title || pdf.filename}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {pdf.brand} {pdf.model} &mdash; {pdf.device} ({pdf.manualType})
-                      </Typography>
-                      <Box sx={{ mt: 0.5, display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, overflowX: { xs: 'auto', sm: 'visible' } }}>
-                        {[...pdf.tags, ...pdf.extraTags].map((tag) => (
-                          <Box key={tag} sx={{ bgcolor: 'primary.light', color: 'primary.contrastText', px: 1, borderRadius: 1, fontSize: 12, whiteSpace: 'nowrap' }}>
-                            {tag}
+            {loading && <CircularProgress />}
+            {error && <Alert severity="error">{error}</Alert>}
+            {index && (
+              <>
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Loaded {index.pdfs.length} manuals.
+                  {selectedTag && (
+                    <span style={{ marginLeft: 8 }}>
+                      (Filtered by tag: <b>{selectedTag}</b>)
+                    </span>
+                  )}
+                  {searchQuery && (
+                    <span style={{ marginLeft: 8 }}>
+                      (Search: <b>{searchQuery}</b>)
+                    </span>
+                  )}
+                </Alert>
+                <List>
+                  {index.pdfs
+                    .filter((pdf) => {
+                      // Tag filter
+                      if (selectedTag && ![...pdf.tags, ...pdf.extraTags].includes(selectedTag)) {
+                        return false;
+                      }
+                      // Search filter (case-insensitive, matches filename, title, brand, model, device, manualType, tags)
+                      if (searchQuery) {
+                        const q = searchQuery.toLowerCase();
+                        const fields = [
+                          pdf.filename,
+                          pdf.title,
+                          pdf.brand,
+                          pdf.model,
+                          pdf.device,
+                          pdf.manualType,
+                          ...pdf.tags,
+                          ...pdf.extraTags,
+                        ].join(' ').toLowerCase();
+                        if (!fields.includes(q)) return false;
+                      }
+                      return true;
+                    })
+                    .map((pdf) => (
+                      <ListItem key={pdf.hash} alignItems="flex-start" sx={{ mb: 1, borderRadius: 2, boxShadow: 1, bgcolor: 'background.paper', py: { xs: 1.5, sm: 2 } }}>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="subtitle1" fontWeight={600}>{pdf.title || pdf.filename}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {pdf.brand} {pdf.model} &mdash; {pdf.device} ({pdf.manualType})
+                          </Typography>
+                          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, overflowX: { xs: 'auto', sm: 'visible' } }}>
+                            {[...pdf.tags, ...pdf.extraTags].map((tag) => (
+                              <Box key={tag} sx={{ bgcolor: 'primary.light', color: 'primary.contrastText', px: 1, borderRadius: 1, fontSize: 12, whiteSpace: 'nowrap' }}>
+                                {tag}
+                              </Box>
+                            ))}
                           </Box>
-                        ))}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                        Pages: {pdf.pages} | Last modified: {pdf.lastModified}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ ml: 2, alignSelf: 'center' }}>
-                      <a
-                        href={`/pdf/${pdf.path}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ textDecoration: 'none' }}
-                      >
-                        <Box
-                          sx={{
-                            bgcolor: 'primary.main',
-                            color: 'primary.contrastText',
-                            px: 2,
-                            py: 1.2,
-                            minHeight: 44,
-                            borderRadius: 1,
-                            fontWeight: 500,
-                            fontSize: 14,
-                            textAlign: 'center',
-                            transition: 'background 0.2s',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            '&:hover': { bgcolor: 'primary.dark' },
-                          }}
-                        >
-                          View PDF
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                            Pages: {pdf.pages} | Last modified: {pdf.lastModified}
+                          </Typography>
                         </Box>
-                      </a>
-                    </Box>
-                  </ListItem>
-                ))}
-              {index.pdfs.filter((pdf) => {
-                if (selectedTag && ![...pdf.tags, ...pdf.extraTags].includes(selectedTag)) {
-                  return false;
-                }
-                if (searchQuery) {
-                  const q = searchQuery.toLowerCase();
-                  const fields = [
-                    pdf.filename,
-                    pdf.title,
-                    pdf.brand,
-                    pdf.model,
-                    pdf.device,
-                    pdf.manualType,
-                    ...pdf.tags,
-                    ...pdf.extraTags,
-                  ].join(' ').toLowerCase();
-                  if (!fields.includes(q)) return false;
-                }
-                return true;
-              }).length === 0 && (
-                <ListItem>
-                  <ListItemText primary="No manuals found." />
-                </ListItem>
-              )}
-            </List>
+                        <Box sx={{ ml: 2, alignSelf: 'center' }}>
+                          <button
+                            onClick={() => setSelectedPdf(pdf)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              margin: 0,
+                              cursor: 'pointer',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                bgcolor: 'primary.main',
+                                color: 'primary.contrastText',
+                                px: 2,
+                                py: 1.2,
+                                minHeight: 44,
+                                borderRadius: 1,
+                                fontWeight: 500,
+                                fontSize: 14,
+                                textAlign: 'center',
+                                transition: 'background 0.2s',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                '&:hover': { bgcolor: 'primary.dark' },
+                              }}
+                            >
+                              View PDF
+                            </Box>
+                          </button>
+                        </Box>
+                      </ListItem>
+                    ))}
+                  {index.pdfs.filter((pdf) => {
+                    if (selectedTag && ![...pdf.tags, ...pdf.extraTags].includes(selectedTag)) {
+                      return false;
+                    }
+                    if (searchQuery) {
+                      const q = searchQuery.toLowerCase();
+                      const fields = [
+                        pdf.filename,
+                        pdf.title,
+                        pdf.brand,
+                        pdf.model,
+                        pdf.device,
+                        pdf.manualType,
+                        ...pdf.tags,
+                        ...pdf.extraTags,
+                      ].join(' ').toLowerCase();
+                      if (!fields.includes(q)) return false;
+                    }
+                    return true;
+                  }).length === 0 && (
+                    <ListItem>
+                      <ListItemText primary="No manuals found." />
+                    </ListItem>
+                  )}
+                </List>
+              </>
+            )}
           </>
         )}
       </Box>

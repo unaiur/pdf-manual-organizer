@@ -1,5 +1,2 @@
 /node_modules
-/public/
-!/public/index.html
-!/public/index.json
-!/public/pdf/
+/public/pdf/

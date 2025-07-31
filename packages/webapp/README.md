@@ -11,6 +11,11 @@ This app requires `index.json` and the `pdf` folder to be available in the monor
 
 ---
 
+## In-app PDF Viewing
+
+- When you click "View PDF" on a manual, the PDF is displayed directly in the app, hiding the file list and tag list for distraction-free reading.
+- The AppBar remains visible and now includes a close button (X) when a PDF is open. Click this button to return to the main page (file list/tag list view).
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
