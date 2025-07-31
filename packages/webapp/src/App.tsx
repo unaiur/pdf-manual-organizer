@@ -189,7 +189,16 @@ function App() {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <AppBar 
+        position="fixed" 
+        sx={{ 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          top: 0,
+          left: 0,
+          right: 0,
+          position: 'fixed !important'
+        }}
+      >
         <Toolbar>
           {isMobile && !selectedPdf && (
             <IconButton
@@ -284,7 +293,7 @@ function App() {
           flexGrow: 1,
           p: 3,
           width: !selectedPdf ? { sm: `calc(100% - ${drawerWidth}px)` } : '100%',
-          mt: 8,
+          mt: { xs: 7, sm: 8 }, // Reduce top margin on mobile (iPhone)
         }}
       >
         {selectedPdf ? (

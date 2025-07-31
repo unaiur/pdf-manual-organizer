@@ -2,6 +2,37 @@
   text-align: center;
 }
 
+/* Ensure AppBar stays visible on iOS Safari */
+.MuiAppBar-root {
+  position: fixed !important;
+  top: 0 !important;
+  top: env(safe-area-inset-top) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1100 !important;
+  transform: translateZ(0); /* Forces hardware acceleration */
+  -webkit-transform: translateZ(0);
+}
+
+/* Prevent iOS Safari from hiding fixed headers during scroll */
+body {
+  position: relative;
+  overflow-x: hidden;
+  /* Remove the padding-top that was causing extra space */
+}
+
+/* iOS Safari viewport fix for fixed positioning */
+@supports (-webkit-touch-callout: none) {
+  .MuiAppBar-root {
+    position: -webkit-sticky !important;
+    position: sticky !important;
+    top: 0 !important;
+    top: env(safe-area-inset-top) !important;
+  }
+  
+  /* Remove the extra padding that was causing the large space */
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;
