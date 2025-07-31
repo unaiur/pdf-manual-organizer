@@ -239,7 +239,12 @@ function App() {
         {selectedPdf ? (
           // PDF viewer mode
           <Box sx={{ width: '100%', height: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>{selectedPdf.title || selectedPdf.filename}</Typography>
+            <Typography variant="h6" sx={{ mb: 2 }}>
+  {selectedPdf.brand} {selectedPdf.model} — {selectedPdf.device} ({selectedPdf.manualType})
+</Typography>
+<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+  {selectedPdf.filename}
+</Typography>
             <iframe
               src={`/pdf/${selectedPdf.path}`}
               title={selectedPdf.title || selectedPdf.filename}
@@ -293,11 +298,12 @@ function App() {
                     .map((pdf) => (
                       <ListItem key={pdf.hash} alignItems="flex-start" sx={{ mb: 1, borderRadius: 2, boxShadow: 1, bgcolor: 'background.paper', py: { xs: 1.5, sm: 2 } }}>
                         <Box sx={{ flexGrow: 1 }}>
-                          <Typography variant="subtitle1" fontWeight={600}>{pdf.title || pdf.filename}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {pdf.brand} {pdf.model} &mdash; {pdf.device} ({pdf.manualType})
-                          </Typography>
-                          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, overflowX: { xs: 'auto', sm: 'visible' } }}>
+<Typography variant="subtitle1" fontWeight={600}>
+  {pdf.brand} {pdf.model} — {pdf.device} ({pdf.manualType})
+</Typography>
+<Typography variant="body2" color="text.secondary">
+  {pdf.filename}
+</Typography>                          <Box sx={{ mt: 0.5, display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, overflowX: { xs: 'auto', sm: 'visible' } }}>
                             {[...pdf.tags, ...pdf.extraTags].map((tag) => (
                               <Box key={tag} sx={{ bgcolor: 'primary.light', color: 'primary.contrastText', px: 1, borderRadius: 1, fontSize: 12, whiteSpace: 'nowrap' }}>
                                 {tag}
